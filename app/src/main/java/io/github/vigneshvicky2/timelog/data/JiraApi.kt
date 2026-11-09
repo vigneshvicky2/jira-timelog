@@ -151,6 +151,29 @@ class JiraApi(private val site: String, email: String, token: String) {
         out.distinctBy { it.key }
     }
 
+    /** Full details for the long-press preview: status, people and the formatted description. */
+    suspend fun issueDetails(key: String): IssueDetails = io {
+        val o = JSONObject(
+            request("GET", "/rest/api/3/issue/$key?fields=summary,description,status,priority,issuetype,assignee,reporter,labels")
+        )
+        val f = o.optJSONObject("fields") ?: JSONObject()
+        val status = f.optJSONObject("status")
+        val labels = f.optJSONArray("labels")
+        IssueDetails(
+            key = o.getString("key"),
+            summary = f.optString("summary"),
+            type = f.optJSONObject("issuetype")?.optString("name").orEmpty(),
+            status = status?.optString("name").orEmpty(),
+            statusCategory = status?.optJSONObject("statusCategory")?.optString("key").orEmpty(),
+            priority = f.optJSONObject("priority")?.optString("name")?.takeIf { it.isNotBlank() },
+            assignee = f.optJSONObject("assignee")?.optString("displayName")?.takeIf { it.isNotBlank() },
+            reporter = f.optJSONObject("reporter")?.optString("displayName")?.takeIf { it.isNotBlank() },
+            labels = if (labels == null) emptyList() else (0 until labels.length()).map { labels.getString(it) },
+            description = f.optJSONObject("description")?.let { adfBlocks(it) } ?: emptyList(),
+            url = "https://$site/browse/${o.getString("key")}",
+        )
+    }
+
     suspend fun issue(key: String): Issue = io {
         val o = JSONObject(request("GET", "/rest/api/3/issue/$key?fields=summary"))
         Issue(o.getString("key"), o.optJSONObject("fields")?.optString("summary").orEmpty())
@@ -224,6 +247,82 @@ class JiraApi(private val site: String, email: String, token: String) {
                     }))
                 }
             })
+
+        // ---- ADF (Atlassian Document Format) -> simple blocks ----
+
+        private fun JSONObject.children(): List<JSONObject> {
+            val a = optJSONArray("content") ?: return emptyList()
+            return (0 until a.length()).mapNotNull { a.optJSONObject(it) }
+        }
+
+        private fun hasText(s: List<Span>) = s.any { it.text.isNotBlank() }
+
+        /** Inline nodes -> styled spans. */
+        private fun spans(node: JSONObject): List<Span> = node.children().flatMap { n ->
+            val attrs = n.optJSONObject("attrs")
+            when (n.optString("type")) {
+                "text" -> {
+                    val marks = n.optJSONArray("marks")
+                    val types = if (marks == null) emptyList() else (0 until marks.length()).map { marks.getJSONObject(it) }
+                    fun has(t: String) = types.any { it.optString("type") == t }
+                    listOf(
+                        Span(
+                            text = n.optString("text"),
+                            bold = has("strong"),
+                            italic = has("em"),
+                            code = has("code"),
+                            strike = has("strike"),
+                            link = types.firstOrNull { it.optString("type") == "link" }?.optJSONObject("attrs")?.optString("href"),
+                        )
+                    )
+                }
+                "hardBreak" -> listOf(Span("\n"))
+                "mention" -> listOf(Span(attrs?.optString("text")?.ifBlank { null } ?: "@someone", bold = true))
+                "emoji" -> listOf(Span(attrs?.let { it.optString("text").ifBlank { it.optString("shortName") } }.orEmpty()))
+                "inlineCard", "blockCard" -> attrs?.optString("url")?.takeIf { it.isNotBlank() }?.let { listOf(Span(it, link = it)) } ?: emptyList()
+                "status" -> listOf(Span(attrs?.optString("text").orEmpty().uppercase(), bold = true))
+                else -> spans(n)
+            }
+        }
+
+        private fun plain(node: JSONObject): String = spans(node).joinToString("") { it.text }
+
+        fun adfBlocks(doc: JSONObject): List<DescBlock> {
+            val out = mutableListOf<DescBlock>()
+            fun walk(node: JSONObject, depth: Int) {
+                for (n in node.children()) when (n.optString("type")) {
+                    "paragraph" -> spans(n).takeIf(::hasText)?.let { out += DescBlock.Paragraph(it) }
+                    "heading" -> out += DescBlock.Heading(spans(n), n.optJSONObject("attrs")?.optInt("level", 3) ?: 3)
+                    "bulletList", "orderedList" -> {
+                        val ordered = n.optString("type") == "orderedList"
+                        var i = n.optJSONObject("attrs")?.optInt("order", 1) ?: 1
+                        for (item in n.children()) {
+                            val marker = if (ordered) "${i++}." else if (depth == 0) "•" else "◦"
+                            val parts = item.children()
+                            val first = parts.firstOrNull { it.optString("type") == "paragraph" }
+                            out += DescBlock.Item(first?.let { spans(it) } ?: emptyList(), marker, depth)
+                            for (p in parts) if (p !== first) walk(JSONObject().put("content", JSONArray().put(p)), depth + 1)
+                        }
+                    }
+                    "taskList" -> for (item in n.children()) {
+                        val done = item.optJSONObject("attrs")?.optString("state") == "DONE"
+                        out += DescBlock.Item(spans(item), if (done) "☑" else "☐", depth)
+                    }
+                    "codeBlock" -> out += DescBlock.Code(plain(n))
+                    "blockquote", "panel" -> for (c in n.children()) spans(c).takeIf(::hasText)?.let { out += DescBlock.Quote(it) }
+                    "rule" -> out += DescBlock.Rule
+                    "mediaSingle", "mediaGroup" -> out += DescBlock.Paragraph(listOf(Span("📎 Attachment: open in Jira to view", italic = true)))
+                    "table" -> for (row in n.children()) {
+                        val cells = row.children().joinToString("  |  ") { cell -> cell.children().joinToString(" ") { plain(it) }.trim() }
+                        if (cells.isNotBlank()) out += DescBlock.Paragraph(listOf(Span(cells)))
+                    }
+                    "expand", "nestedExpand", "layoutSection", "layoutColumn" -> walk(n, depth)
+                    else -> spans(n).takeIf(::hasText)?.let { out += DescBlock.Paragraph(it) }
+                }
+            }
+            walk(doc, 0)
+            return out
+        }
 
         private fun adfText(node: Any?): String = when (node) {
             is JSONObject -> if (node.optString("type") == "text") node.optString("text") else adfText(node.optJSONArray("content"))

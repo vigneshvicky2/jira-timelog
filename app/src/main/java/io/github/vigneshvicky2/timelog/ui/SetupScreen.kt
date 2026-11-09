@@ -213,30 +213,15 @@ fun SetupScreen(vm: TimelogViewModel) {
 
 @Composable
 private fun Logo(modifier: Modifier = Modifier) {
-    val scale = pulse(1f, 1.07f, 1300)
-    val spin by rememberInfiniteTransition(label = "spin").animateFloat(
-        0f, 360f, infiniteRepeatable(tween(5000, easing = LinearEasing)), label = "a"
-    )
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
-    Box(modifier.size(132.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val s = 5.dp.toPx()
-            drawArc(
-                Brush.sweepGradient(listOf(Color.Transparent, tertiary, primary)),
-                spin, 260f, false, Offset(s, s), Size(size.width - 2 * s, size.height - 2 * s),
-                style = Stroke(s, cap = StrokeCap.Round),
-            )
-        }
-        Box(
-            Modifier
-                .size(96.dp)
-                .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-                .clip(CircleShape)
-                .background(Brush.linearGradient(listOf(primary, tertiary))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Rounded.AvTimer, null, Modifier.size(52.dp), tint = Color.White)
-        }
+    Box(
+        modifier
+            .size(96.dp)
+            .clip(RoundedCornerShape(30.dp))
+            .background(Brush.linearGradient(listOf(primary, tertiary))),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Rounded.AvTimer, null, Modifier.size(52.dp), tint = Color.White)
     }
 }

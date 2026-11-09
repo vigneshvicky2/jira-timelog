@@ -89,6 +89,25 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toast(text: String) { messages.tryEmit(text) }
 
+    /** Ticket shown in the long-press preview (null = closed). */
+    var peek by mutableStateOf<Issue?>(null); private set
+    private val detailsCache = mutableMapOf<String, io.github.vigneshvicky2.timelog.data.IssueDetails>()
+
+    fun openPeek(issue: Issue) { peek = issue }
+    fun closePeek() { peek = null }
+
+    suspend fun issueDetails(key: String): Result<io.github.vigneshvicky2.timelog.data.IssueDetails> {
+        detailsCache[key]?.let { return Result.success(it) }
+        val a = api ?: return Result.failure(IllegalStateException("Not connected"))
+        return try {
+            val d = a.issueDetails(key)
+            detailsCache[key] = d
+            Result.success(d)
+        } catch (e: Exception) {
+            Result.failure(Exception(friendly(e)))
+        }
+    }
+
     val site get() = store.site
     val email get() = store.email
 

@@ -26,14 +26,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             TimelogTheme {
                 val vm: TimelogViewModel = viewModel()
-                Surface(color = MaterialTheme.colorScheme.surface) { AnimatedContent(
+                Surface(color = MaterialTheme.colorScheme.surface) { androidx.compose.foundation.layout.Box { AnimatedContent(
                     targetState = vm.configured,
                     transitionSpec = {
                         (fadeIn(tween(500)) + scaleIn(tween(500), initialScale = 0.92f)) togetherWith
                             (fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 1.05f))
                     },
                     label = "root",
-                ) { ready -> EntranceScope { if (ready) HomeScreen(vm) else SetupScreen(vm) } } }
+                ) { ready -> EntranceScope { if (ready) HomeScreen(vm) else SetupScreen(vm) } }
+                    io.github.vigneshvicky2.timelog.ui.IssuePeekHost(vm)
+                } }
             }
         }
     }

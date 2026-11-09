@@ -543,7 +543,7 @@ private fun DayCard(
                     Spacer(Modifier.height(18.dp))
                     SectionLabel("Ready to log · swipe to remove")
                     dayDrafts.forEach { d ->
-                        key(d.id) { DraftRow(d, onClick = { onEditDraft(d) }, onRemove = { vm.removeDraft(d.id) }) }
+                        key(d.id) { DraftRow(d, onClick = { onEditDraft(d) }, onRemove = { vm.removeDraft(d.id) }, onPeek = { vm.openPeek(d.issue) }) }
                     }
                 }
             }
@@ -671,7 +671,7 @@ private fun MeetingCard(m: Meeting, added: Boolean, rememberedKey: String?, modi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DraftRow(d: Draft, onClick: () -> Unit, onRemove: () -> Unit) {
+private fun DraftRow(d: Draft, onClick: () -> Unit, onRemove: () -> Unit, onPeek: () -> Unit) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = {
         if (it != SwipeToDismissBoxValue.Settled) { onRemove(); true } else false
     })
@@ -687,12 +687,21 @@ private fun DraftRow(d: Draft, onClick: () -> Unit, onRemove: () -> Unit) {
         },
     ) {
         val press = rememberPress(0.97f)
+        val haptics = LocalHapticFeedback.current
         Surface(
-            onClick = onClick,
-            interactionSource = press.source,
             shape = RoundedCornerShape(20.dp),
             color = if (d.error != null) cs.errorContainer.copy(alpha = 0.6f) else cs.surfaceContainerHighest,
-            modifier = press.modifier,
+            modifier = press.modifier
+                .clip(RoundedCornerShape(20.dp))
+                .combinedClickable(
+                    interactionSource = press.source,
+                    indication = androidx.compose.foundation.LocalIndication.current,
+                    onClick = onClick,
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onPeek()
+                    },
+                ),
         ) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

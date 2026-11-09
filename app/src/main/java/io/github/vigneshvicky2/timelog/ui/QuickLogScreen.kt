@@ -22,6 +22,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -344,7 +346,7 @@ private fun DayPage(
         val sprintShown = if (searchingNow) vm.search(search.query) else vm.suggestions
         val extras = vm.extraTickets(day).filter { e -> search.remote.none { it.key == e.key } }
 
-        item(key = "th") { SectionHeader("Sprint tickets", vm.sprintName ?: "Current sprint", Icons.Rounded.DirectionsRun) }
+        item(key = "th") { SectionHeader("Sprint tickets", (vm.sprintName ?: "Current sprint") + " · long-press a ticket for details", Icons.Rounded.DirectionsRun) }
         if (searchingNow && sprintShown.isEmpty()) {
             item(key = "nosprint") {
                 Text(
@@ -371,6 +373,7 @@ private fun DayPage(
                 free = remaining,
                 onSet = { vm.setTicketTime(day, issue, it) },
                 onComment = { vm.setTicketComment(day, issue.key, it) },
+                    onPeek = { vm.openPeek(issue) },
                 modifier = Modifier.animateItem().enter(i + meetings.size),
             )
         }
@@ -385,6 +388,7 @@ private fun DayPage(
                     free = remaining,
                     onSet = { vm.setTicketTime(day, issue, it) },
                     onComment = { vm.setTicketComment(day, issue.key, it) },
+                    onPeek = { vm.openPeek(issue) },
                     modifier = Modifier.animateItem().enter(i, always = true),
                 )
             }
@@ -413,6 +417,7 @@ private fun DayPage(
                     free = remaining,
                     onSet = { vm.setTicketTime(day, issue, it) },
                     onComment = { vm.setTicketComment(day, issue.key, it) },
+                    onPeek = { vm.openPeek(issue) },
                     modifier = Modifier.animateItem().enter(i, always = true),
                 )
             }
@@ -670,10 +675,14 @@ private fun TicketCard(
     free: Long,
     onSet: (Long) -> Unit,
     onComment: (String) -> Unit,
+    onPeek: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
     val active = seconds > 0
+    // long-press feedback: the card sinks a little under the finger, then the preview opens
+    var held by remember { mutableStateOf(false) }
+    val holdScale by animateFloatAsState(if (held) 0.965f else 1f, spring(0.6f, Spring.StiffnessMedium), label = "hold")
     val bg by animateColorAsState(if (active) cs.primaryContainer else cs.surfaceContainerHigh, tween(220), label = "tc")
     val numColor by animateColorAsState(
         if (active) cs.onPrimaryContainer else cs.onSurfaceVariant.copy(alpha = 0.45f), tween(220), label = "nc"
@@ -693,7 +702,27 @@ private fun TicketCard(
     }
     fun set(v: Long) { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSet(maxOf(0L, v)) }
 
-    Surface(shape = RoundedCornerShape(26.dp), color = bg, modifier = modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(26.dp),
+        color = bg,
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer { scaleX = holdScale; scaleY = holdScale }
+            .pointerInput(issue.key) {
+                detectTapGestures(
+                    onPress = {
+                        held = true
+                        tryAwaitRelease()
+                        held = false
+                    },
+                    onLongPress = {
+                        held = false
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onPeek()
+                    },
+                )
+            },
+    ) {
         Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
