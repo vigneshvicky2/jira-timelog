@@ -12,6 +12,7 @@ export default function ReviewPanel({ open, onClose }) {
   const progress = useStore((s) => s.progress)
   const submitAll = useStore((s) => s.submitAll)
   const removeDraft = useStore((s) => s.removeDraft)
+  const openPeek = useStore((s) => s.openPeek)
   const clearDrafts = useStore((s) => s.clearDrafts)
   const [confirmClear, setConfirmClear] = useState(false)
 
@@ -62,7 +63,7 @@ export default function ReviewPanel({ open, onClose }) {
                   <motion.div key={x.id} layout className={'rv-item' + (x.error ? ' err' : '')}
                     initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -18, transition: { duration: 0.18 } }} transition={{ duration: 0.28, ease }}>
-                    <div className="rv-main">
+                    <div className="rv-main peekable" onClick={() => openPeek(x.issue)} title="Show ticket details">
                       <div className="rv-line">
                         <KeyChip k={x.issue.key} />
                         {x.meetingKey && <span className="rv-badge"><Icon name="calendar" size={12} /> {fmtTime(x.start)}</span>}

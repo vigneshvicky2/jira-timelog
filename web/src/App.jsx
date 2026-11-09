@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import Header from './components/Header.jsx'
+import IssuePeek from './components/IssuePeek.jsx'
 import ReviewPanel from './components/ReviewPanel.jsx'
 import Settings from './components/Settings.jsx'
 import Setup from './components/Setup.jsx'
@@ -56,8 +57,14 @@ function Main() {
       <ReviewPanel open={review} onClose={() => setReview(false)} />
       <AnimatePresence>{review && <motion.div className="review-scrim" onClick={() => setReview(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />}</AnimatePresence>
       <AnimatePresence>{settings && <Settings onClose={() => setSettings(false)} />}</AnimatePresence>
+      <PeekHost />
     </motion.div>
   )
+}
+
+function PeekHost() {
+  const peek = useStore((s) => s.peek)
+  return <AnimatePresence>{peek && <IssuePeek key={peek.key} issue={peek} />}</AnimatePresence>
 }
 
 /** Fires the daily reminder while a Timelog tab is open. */

@@ -42,7 +42,6 @@ export default function Setup() {
         initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}>
         <motion.div className="logo-wrap" {...item(0)}>
-          <div className="logo-spin" />
           <img src="/favicon.svg" alt="" className="logo" />
         </motion.div>
         <motion.h1 {...item(1)}>Timelog</motion.h1>

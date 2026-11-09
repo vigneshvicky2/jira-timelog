@@ -132,6 +132,28 @@ export function createJira({ site, email, token }) {
       return out
     },
 
+    /** Details for the ticket preview; description stays as Jira rich text (ADF). */
+    async issueDetails(key) {
+        const o = await request(
+          'GET',
+          `rest/api/3/issue/${key}?fields=summary,description,status,priority,issuetype,assignee,reporter,labels`,
+        )
+        const f = o.fields || {}
+        return {
+          key: o.key,
+          summary: f.summary || '',
+          type: f.issuetype?.name || '',
+          status: f.status?.name || '',
+          statusCategory: f.status?.statusCategory?.key || '',
+          priority: f.priority?.name || null,
+          assignee: f.assignee?.displayName || null,
+          reporter: f.reporter?.displayName || null,
+          labels: f.labels || [],
+          description: f.description || null,
+          url: `https://${site}/browse/${o.key}`,
+        }
+    },
+
     async searchAll(query) {
       const q = query.trim()
       const out = []

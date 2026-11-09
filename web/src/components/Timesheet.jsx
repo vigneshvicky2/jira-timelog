@@ -20,6 +20,7 @@ export default function Timesheet({ onOpenSettings }) {
   const loading = useStore((s) => s.loading)
   const setCell = useStore((s) => s.setCell)
   const unpin = useStore((s) => s.unpin)
+  const openPeek = useStore((s) => s.openPeek)
 
   const sheetRef = useRef(null)
   const [editor, setEditor] = useState(null)
@@ -61,8 +62,8 @@ export default function Timesheet({ onOpenSettings }) {
   const flat = useMemo(() => sections.flatMap((s) => s.rows.map((r) => ({ ...r, leave: !!s.leave }))), [sections])
   const rowIndex = useMemo(() => Object.fromEntries(flat.map((r, i) => [r.key, i])), [flat])
 
-  const cols = `minmax(250px, 300px) repeat(${days.length}, minmax(170px, 1fr))`
-  const minWidth = 260 + days.length * 172
+  const cols = `minmax(210px, 250px) repeat(${days.length}, minmax(156px, 1fr))`
+  const minWidth = 220 + days.length * 158
 
   const focusCell = useCallback((r, c) => {
     const el = sheetRef.current?.querySelector(`[data-cell][data-r="${r}"][data-c="${c}"]`)
@@ -111,8 +112,8 @@ export default function Timesheet({ onOpenSettings }) {
         {/* day headers */}
         <div className="row head">
           <div className="rowhead corner">
-            <div className="corner-title">Timesheet</div>
-            <div className="muted small">Click a cell or just type a time</div>
+            <div className="corner-title">Tickets</div>
+            <div className="muted small">Click a cell or type a time</div>
           </div>
           <AnimatePresence initial={false} mode="popLayout">
             {days.map((d) => (
@@ -163,12 +164,14 @@ export default function Timesheet({ onOpenSettings }) {
                 const r = rowIndex[row.key]
                 const rowTotal = days.reduce((a, d) => a + (index.pending[d + '|' + row.key]?.seconds || 0), 0)
                 return (
-                  <motion.div key={row.key} className={'row' + (sec.leave ? ' leave-row' : '')} layout="position"
+                  <motion.div key={row.key} className={'row ticket' + (sec.leave ? ' leave-row' : '')} layout="position"
                     initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.15 } }}
                     transition={{ duration: 0.28, ease }}>
-                    <div className="rowhead">
+                    <div className="rowhead peekable" role="button" tabIndex={-1} title="Show ticket details"
+                      onClick={(e) => { if (!e.target.closest('button')) openPeek(row) }}>
                       <div className="rh-line">
                         <KeyChip k={row.key} className={sec.leave ? 'leave' : ''} />
+                        <Icon name="info" size={14} className="rh-info" />
                         {rowTotal > 0 && <Roll className="rh-total">{fmt(rowTotal)}</Roll>}
                         {row.pinned && (
                           <button className="icon-btn tiny rh-unpin" title="Remove row" onClick={() => unpin(row.key)}>
@@ -225,10 +228,10 @@ function DayHeader({ d, onMenu }) {
   const rem = TARGET - logged - pending
   const date = fromIso(d)
   return (
-    <motion.div layout className={'dayhead' + (isWeekend(d) ? ' weekend' : '') + (leave ? ' leave' : '') + (d === today ? ' today' : '')}
+    <motion.div className={'dayhead' + (isWeekend(d) ? ' weekend' : '') + (leave ? ' leave' : '') + (d === today ? ' today' : '')}
       initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.3, ease }}>
       <div className="dh-top">
-        <div>
+        <div className="dh-titles">
           <div className="dh-rel">{relativeLabel(d, today)}{leave && <span className="dh-tag"><Icon name="beach" size={12} /> Leave</span>}</div>
           <div className="dh-date">{date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</div>
         </div>
@@ -238,16 +241,13 @@ function DayHeader({ d, onMenu }) {
         </motion.button>
       </div>
       <div className="dh-body">
-        <Ring logged={logged} pending={pending} size={62} stroke={6}>
-          <Roll className="ring-num">{fmt(logged + pending)}</Roll>
-        </Ring>
+        <Ring logged={logged} pending={pending} size={40} stroke={5} />
         <div className="dh-stats">
           <Roll className={'dh-rem ' + (rem < 0 ? 'over' : rem === 0 ? 'done' : '')}>
             {rem > 0 ? `${fmt(rem)} left` : rem === 0 ? '8h done ✓' : `+${fmt(-rem)} over`}
           </Roll>
-          <div className="dh-split">
-            <span><i className="dot primary" />Jira {fmt(logged)}</span>
-            <span><i className="dot tertiary" />New {fmt(pending)}</span>
+          <div className="dh-split" title={`In Jira ${fmt(logged)} · New ${fmt(pending)}`}>
+            {fmt(logged + pending)} of 8h{pending > 0 ? ` · +${fmt(pending)} new` : ''}
           </div>
         </div>
       </div>
@@ -289,9 +289,12 @@ function Cell({ r, c, date, leave, draft, logged, meeting, active, onOpen }) {
       whileTap={{ scale: 0.97 }}
       title={draft?.error || draft?.comment || ''}
     >
-      <span className="cell-main">
-        {has ? <Roll className="cell-val">{fmt(draft.seconds)}</Roll> : <span className="cell-add"><Icon name="plus" size={16} /></span>}
-      </span>
+      {has && (
+        <span className="cell-main">
+          <Roll className="cell-val">{fmt(draft.seconds)}</Roll>
+        </span>
+      )}
+      {!has && <span className="cell-add"><Icon name="plus" size={15} /></span>}
       {(logged > 0 || meeting > 0 || draft?.comment) && (
         <span className="cell-sub">
           {logged > 0 && <span className="tag jira">Jira {fmt(logged)}</span>}

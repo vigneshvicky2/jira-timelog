@@ -18,7 +18,16 @@ export async function GET(request) {
     return json({ error: 'Use a Google Calendar or Outlook iCal link' }, 400)
   }
   const upstream = await fetch(target.toString(), { redirect: 'follow' })
-  if (!upstream.ok) return json({ error: `Calendar returned ${upstream.status}. Check the link.` }, 502)
+  if (!upstream.ok) {
+    const google = target.hostname === 'calendar.google.com'
+    const msg =
+      upstream.status === 404 && google
+        ? target.pathname.includes('/public/')
+          ? 'Google returned 404: that is the PUBLIC address, which only works for public calendars. Copy the “Secret address in iCal format” instead (it contains /private-…/).'
+          : 'Google returned 404 for this link. Copy the “Secret address in iCal format” again (it contains /private-…/). If your work account has no secret address, your Google Workspace admin has turned it off.'
+        : `Calendar returned ${upstream.status}. Check the link.`
+    return json({ error: msg }, 502)
+  }
   return new Response(await upstream.text(), {
     headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store' },
   })

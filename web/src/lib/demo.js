@@ -56,6 +56,31 @@ export function createDemoJira() {
       await wait(400)
       return logs.filter((l) => l.date >= from && l.date <= to)
     },
+    async issueDetails(key) {
+      await wait(450)
+      const i = [...ISSUES, ...OTHER, TIME_OFF].find((x) => x.key === key) || { key, summary: 'Ticket' }
+      const t = (text, marks) => ({ type: 'text', text, ...(marks ? { marks } : {}) })
+      const p = (...content) => ({ type: 'paragraph', content })
+      return {
+        key, summary: i.summary, type: key === TIME_OFF.key ? 'Task' : 'Story', status: 'In Progress',
+        statusCategory: 'indeterminate', priority: 'Medium', assignee: 'Alex Morgan', reporter: 'Sam Lee',
+        labels: ['frontend', 'q4'], url: `https://demo.atlassian.net/browse/${key}`,
+        description: {
+          type: 'doc', version: 1, content: [
+            { type: 'heading', attrs: { level: 3 }, content: [t('Goal')] },
+            p(t('Make the '), t('checkout flow', [{ type: 'strong' }]), t(' faster and clearer on mobile and desktop.')),
+            { type: 'heading', attrs: { level: 3 }, content: [t('Acceptance criteria')] },
+            { type: 'bulletList', content: [
+              { type: 'listItem', content: [p(t('Single-page checkout with inline validation'))] },
+              { type: 'listItem', content: [p(t('Saved cards shown first'))] },
+              { type: 'listItem', content: [p(t('Lighthouse performance score '), t('≥ 90', [{ type: 'code' }]))] },
+            ] },
+            { type: 'blockquote', content: [p(t('Design: see the Figma file linked in the epic.', [{ type: 'em' }]))] },
+            p(t('Spec: '), t('internal wiki', [{ type: 'link', attrs: { href: 'https://example.com' } }])),
+          ],
+        },
+      }
+    },
     async searchAll(q) {
       await wait(300)
       const s = q.toLowerCase()

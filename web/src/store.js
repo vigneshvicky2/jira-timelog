@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS = { icsUrls: [], reminder: { enabled: false, time: '18:00
 
 let api = null
 let calendars = null
+const detailsCache = new Map()
 let nextId = Date.now()
 const norm = (t) => t.toLowerCase().trim().replace(/\s+/g, ' ')
 
@@ -75,6 +76,7 @@ export const useStore = create((set, get) => ({
   progress: 0,
   toasts: [],
   celebrate: 0,
+  peek: null,
 
   // ---------- session ----------
   async init() {
@@ -366,6 +368,21 @@ export const useStore = create((set, get) => ({
     } catch (e) {
       get().toast(e.message, 'error')
     }
+  },
+
+  // ---------- ticket preview ----------
+  openPeek(issue) {
+    set({ peek: { key: issue.key, summary: issue.summary } })
+  },
+  closePeek() {
+    set({ peek: null })
+  },
+  async issueDetails(key) {
+    if (detailsCache.has(key)) return detailsCache.get(key)
+    if (!api) throw new Error('Not connected')
+    const d = await api.issueDetails(key)
+    detailsCache.set(key, d)
+    return d
   },
 
   // ---------- settings / toasts ----------

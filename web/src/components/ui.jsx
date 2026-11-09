@@ -29,6 +29,10 @@ const P = {
   sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z',
   edit: 'M4 20h4l10-10-4-4L4 16v4zM14 6l4 4',
   panel: 'M4 5h16v14H4zM15 5v14',
+  info: 'M12 16v-4M12 8h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  external: 'M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h4',
+  person: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',
+  flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
 }
 export function Icon({ name, size = 18, className, style }) {
   return (

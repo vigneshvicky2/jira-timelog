@@ -67,8 +67,8 @@ export default function Settings({ onClose }) {
       <section className="set-sec">
         <div className="set-title">Calendar meetings</div>
         <p className="muted small">
-          Paste your Google Calendar's <strong>secret address in iCal format</strong>: Google Calendar → Settings → your calendar → Integrate calendar.
-          Outlook "ICS" publish links work too. No Google sign-in needed.
+          In Google Calendar open <strong>Settings → your calendar → Integrate calendar</strong> and copy
+          the <strong>Secret address in iCal format</strong> (not the public one). Outlook “ICS” publish links work too. No Google sign-in needed.
         </p>
         {DEMO ? (
           <div className="muted small">The demo uses sample meetings.</div>
@@ -88,6 +88,11 @@ export default function Settings({ onClose }) {
                 </motion.div>
               ))}
             </AnimatePresence>
+            {urls.some(isPublicGoogle) && (
+              <motion.div className="cal-warn" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
+                This looks like the <strong>public</strong> address. For your own calendar use the <strong>Secret address in iCal format</strong>; it contains <code>/private-…/</code>.
+              </motion.div>
+            )}
             <div className="row-actions">
               <button className="ghost-btn small" onClick={() => setUrls([...urls, ''])}><Icon name="plus" size={15} /> Add another calendar</button>
               <motion.button className="btn primary small" whileTap={{ scale: 0.96 }} onClick={saveCalendars} disabled={calendarState === 'loading'}>
@@ -133,6 +138,9 @@ export default function Settings({ onClose }) {
     </Modal>
   )
 }
+
+// Google "public" iCal links only work for calendars shared publicly (holidays etc. are fine).
+const isPublicGoogle = (u) => /calendar\.google\.com\/calendar\/ical\/[^/]+\/public\//.test(u) && !/group\.v\.calendar\.google\.com/.test(decodeURIComponent(u))
 
 function Switch({ on, onChange }) {
   return (
