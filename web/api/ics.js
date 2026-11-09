@@ -36,7 +36,9 @@ export async function GET(request) {
           ? 'Google returned 404: that is the PUBLIC address, which only works for public calendars. Copy the “Secret address in iCal format” instead (it contains /private-…/).'
           : 'Google returned 404 for this link. Copy the “Secret address in iCal format” again (it contains /private-…/). If your work account has no secret address, your Google Workspace admin has turned it off.'
         : target.hostname === 'script.google.com'
-          ? 'Google could not find that Apps Script deployment. Copy the Web app URL (ending in /exec) from Deploy → Manage deployments again.'
+          ? upstream.status === 401 || upstream.status === 403
+            ? 'Google denied access to this Apps Script. In Deploy → Manage deployments → Edit, set “Who has access” to “Anyone” (not “Anyone within …” or “Anyone with a Google account”) and deploy a new version. If “Anyone” is not offered, your Google Workspace admin blocks public scripts.'
+            : 'Google could not find that Apps Script deployment. Copy the Web app URL (ending in /exec) from Deploy → Manage deployments again.'
           : `Calendar returned ${upstream.status}. Check the link.`
     return json({ error: msg }, 502)
   }
