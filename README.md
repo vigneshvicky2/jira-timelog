@@ -16,6 +16,24 @@ Pick the days, tap time onto your sprint tickets and meetings, and send everythi
 - **Review before sending.** Pending entries can be edited or deleted. Failed entries stay in the list with the reason.
 - **Smooth animations throughout:** press feedback, rolling numbers, staggered entrances, and confetti when everything is logged.
 
+## Web app (laptop)
+
+`web/` is the same app for the browser, redesigned for a big screen:
+
+- **Timesheet grid.** Tickets are rows and your selected days are columns. Click a cell or just type a time (`1.5`, `1h 30m`, `45`). Arrow keys move between cells, <kbd>Del</kbd> clears a cell, and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> logs everything.
+- **Month calendar.** Each day shows its hours, with weekends and leave in their own colours. Click to toggle a day, shift-click to select a range.
+- **Meetings above each day** from your Google Calendar's secret iCal link (or an Outlook ICS link). No Google sign-in is needed.
+- **Review panel** with **Log all**, leave in one click, Jira-wide search, browser reminders and a demo mode (`/?demo`).
+
+The browser can't call Jira directly, so two tiny Vercel Functions relay requests: `api/jira` reaches only `*.atlassian.net/rest/api/3/*`, and `api/ics` reaches only Google and Outlook calendar feeds. Nothing is stored server-side.
+
+```sh
+cd web
+npm install
+npm run serve            # local preview with the relay at http://localhost:4173
+npx vercel --prod        # deploy (after `npx vercel login`)
+```
+
 ## Setup
 
 1. Install the APK from [Releases](../../releases).

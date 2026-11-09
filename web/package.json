@@ -1,0 +1,23 @@
+{
+  "name": "jira-timelog-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "npm run build && node scripts/serve.mjs",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "ical.js": "^2.2.1",
+    "motion": "^14.11.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^6.4.6"
+  }
+}
