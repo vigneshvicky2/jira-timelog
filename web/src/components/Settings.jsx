@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
+import { CALENDAR_SCRIPT } from '../lib/appsScript.js'
 import { reminderFor } from '../lib/messages.js'
 import { DEMO, useStore } from '../store.js'
 import { Icon, Modal, Spinner } from './ui.jsx'
@@ -80,7 +81,7 @@ export default function Settings({ onClose }) {
                   <div className="search-box">
                     <Icon name="link" size={16} className="muted" />
                     <input value={u} onChange={(e) => setUrls(urls.map((x, j) => (j === i ? e.target.value : x)))}
-                      placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" />
+                      placeholder="Secret iCal address or Apps Script /exec URL" />
                   </div>
                   {urls.length > 1 && (
                     <button className="icon-btn small" onClick={() => setUrls(urls.filter((_, j) => j !== i))}><Icon name="close" size={16} /></button>
@@ -93,6 +94,7 @@ export default function Settings({ onClose }) {
                 This looks like the <strong>public</strong> address. For your own calendar use the <strong>Secret address in iCal format</strong>; it contains <code>/private-…/</code>.
               </motion.div>
             )}
+            <ScriptGuide onCopied={() => toast('Script copied')} />
             <div className="row-actions">
               <button className="ghost-btn small" onClick={() => setUrls([...urls, ''])}><Icon name="plus" size={15} /> Add another calendar</button>
               <motion.button className="btn primary small" whileTap={{ scale: 0.96 }} onClick={saveCalendars} disabled={calendarState === 'loading'}>
@@ -141,6 +143,49 @@ export default function Settings({ onClose }) {
 
 // Google "public" iCal links only work for calendars shared publicly (holidays etc. are fine).
 const isPublicGoogle = (u) => /calendar\.google\.com\/calendar\/ical\/[^/]+\/public\//.test(u) && !/group\.v\.calendar\.google\.com/.test(decodeURIComponent(u))
+
+/** Step-by-step setup for work accounts whose admin hid the "Secret address". */
+function ScriptGuide({ onCopied }) {
+  const [open, setOpen] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(CALENDAR_SCRIPT)
+      onCopied()
+    } catch {
+      /* clipboard blocked: the script is still visible to select */
+    }
+  }
+  return (
+    <div className="guide">
+      <button type="button" className="guide-toggle" onClick={() => setOpen((v) => !v)}>
+        <span>No “Secret address” on your work calendar?</span>
+        <motion.span animate={{ rotate: open ? 90 : 0 }}><Icon name="right" size={16} /></motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div className="guide-body" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }} style={{ overflow: 'hidden' }}>
+            <p className="muted small">
+              Your admin has turned it off. A tiny Apps Script in your own Google account can share your meeting titles and
+              times with Timelog instead. No Google sign-in or third-party app is involved.
+            </p>
+            <ol className="steps">
+              <li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noreferrer">script.google.com → New project</a> while signed in to your work account.</li>
+              <li>Delete the sample code and paste this script: <button type="button" className="chip copy-chip" onClick={copy}><Icon name="copy" size={14} /> Copy script</button></li>
+              <li>Click <strong>Deploy → New deployment</strong>, choose type <strong>Web app</strong>, set <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong>, then <strong>Deploy</strong> and allow access to your calendar.</li>
+              <li>Copy the <strong>Web app URL</strong> (it ends in <code>/exec</code>), paste it above and click <strong>Save &amp; load</strong>.</li>
+            </ol>
+            <p className="muted tiny">
+              Anyone with that URL can see your meeting titles and times (45 days back, 30 ahead), so keep it private like a password.
+              If “Anyone” isn't offered, your admin blocks public scripts too and meetings can only come from the Android app.
+            </p>
+            <pre className="script-preview">{CALENDAR_SCRIPT}</pre>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 function Switch({ on, onChange }) {
   return (

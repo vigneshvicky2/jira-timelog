@@ -544,3 +544,14 @@ kbd {
 .shimmer span { height: 13px; border-radius: 7px; background: var(--surface-3); animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
 .peek-error { margin-top: 18px; padding: 12px 14px; border-radius: 14px; background: var(--error-weak); color: var(--error); font-weight: 600; }
+
+/* ---------- calendar script guide ---------- */
+.guide { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.guide-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; font-weight: 700; font-size: 13px; text-align: left; }
+.guide-toggle:hover { background: var(--surface-2); }
+.guide-body { padding: 0 14px; }
+.guide-body > p { margin: 4px 0 10px; }
+.steps { margin: 0 0 10px; padding-left: 20px; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; }
+.steps code, .cal-warn code { font: 12px ui-monospace, 'Cascadia Code', monospace; background: var(--surface-3); padding: 1px 5px; border-radius: 5px; }
+.copy-chip { height: 28px; padding: 0 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; vertical-align: middle; }
+.script-preview { max-height: 180px; overflow: auto; font: 11.5px/1.5 ui-monospace, 'Cascadia Code', monospace; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 0 0 14px; white-space: pre; }

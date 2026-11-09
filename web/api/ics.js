@@ -1,7 +1,14 @@
 // Vercel Function: fetches a calendar's iCal feed for the Timelog web app (no CORS on feeds).
-// Only Google Calendar and Outlook hosts are allowed, so this can't be used as an open proxy.
+// Only Google Calendar, Google Apps Script (for Workspace accounts without a secret iCal address)
+// and Outlook hosts are allowed, so this can't be used as an open proxy.
 
-const ICS_HOSTS = new Set(['calendar.google.com', 'outlook.office365.com', 'outlook.office.com', 'outlook.live.com'])
+const ICS_HOSTS = new Set([
+  'calendar.google.com',
+  'script.google.com',
+  'outlook.office365.com',
+  'outlook.office.com',
+  'outlook.live.com',
+])
 
 const json = (obj, status) =>
   new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
@@ -15,7 +22,10 @@ export async function GET(request) {
   }
   if (target.protocol === 'webcal:') target = new URL('https:' + target.href.slice('webcal:'.length))
   if (target.protocol !== 'https:' || !ICS_HOSTS.has(target.hostname)) {
-    return json({ error: 'Use a Google Calendar or Outlook iCal link' }, 400)
+    return json({ error: 'Use a Google Calendar, Apps Script or Outlook iCal link' }, 400)
+  }
+  if (target.hostname === 'script.google.com' && !/^\/macros\/s\/[\w-]+\/exec$/.test(target.pathname)) {
+    return json({ error: 'Use the Apps Script web app URL that ends in /exec' }, 400)
   }
   const upstream = await fetch(target.toString(), { redirect: 'follow' })
   if (!upstream.ok) {
@@ -25,10 +35,20 @@ export async function GET(request) {
         ? target.pathname.includes('/public/')
           ? 'Google returned 404: that is the PUBLIC address, which only works for public calendars. Copy the “Secret address in iCal format” instead (it contains /private-…/).'
           : 'Google returned 404 for this link. Copy the “Secret address in iCal format” again (it contains /private-…/). If your work account has no secret address, your Google Workspace admin has turned it off.'
-        : `Calendar returned ${upstream.status}. Check the link.`
+        : target.hostname === 'script.google.com'
+          ? 'Google could not find that Apps Script deployment. Copy the Web app URL (ending in /exec) from Deploy → Manage deployments again.'
+          : `Calendar returned ${upstream.status}. Check the link.`
     return json({ error: msg }, 502)
   }
-  return new Response(await upstream.text(), {
+  const body = await upstream.text()
+  if (!body.trimStart().startsWith('BEGIN:VCALENDAR')) {
+    const msg =
+      target.hostname === 'script.google.com'
+        ? 'The Apps Script did not return a calendar. In Deploy → Manage deployments make sure "Execute as" is Me and "Who has access" is Anyone, then copy the /exec URL again.'
+        : 'That link did not return a calendar feed.'
+    return json({ error: msg }, 502)
+  }
+  return new Response(body, {
     headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store' },
   })
 }
