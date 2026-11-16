@@ -8,6 +8,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -101,7 +105,7 @@ fun SetupScreen(vm: TimelogViewModel) {
             Logo(Modifier.enter(0))
             Spacer(Modifier.height(28.dp))
             Text(
-                "Timelog",
+                "Stint",
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.enter(1),
@@ -213,15 +217,52 @@ fun SetupScreen(vm: TimelogViewModel) {
 
 @Composable
 private fun Logo(modifier: Modifier = Modifier) {
-    val primary = MaterialTheme.colorScheme.primary
-    val tertiary = MaterialTheme.colorScheme.tertiary
+    // the tally draws itself: four strokes drop in one after another, then the slash swipes across
+    val strokes = remember { List(4) { Animatable(0f) } }
+    val slash = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        strokes.forEach { a ->
+            launch { a.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow)) }
+            kotlinx.coroutines.delay(90)
+        }
+        kotlinx.coroutines.delay(120)
+        slash.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
+    }
     Box(
         modifier
             .size(96.dp)
             .clip(RoundedCornerShape(30.dp))
-            .background(Brush.linearGradient(listOf(primary, tertiary))),
+            .background(Color(0xFF16151F)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Rounded.AvTimer, null, Modifier.size(52.dp), tint = Color.White)
+        androidx.compose.foundation.Canvas(Modifier.size(96.dp)) {
+            val k = size.width / 108f
+            val cream = Color(0xFFF4EFE6)
+            val lines = listOf(
+                floatArrayOf(33f, 30.5f, 32f, 77f), floatArrayOf(45.5f, 28f, 45f, 79f),
+                floatArrayOf(58f, 30f, 58.5f, 77.5f), floatArrayOf(70.5f, 28.5f, 70f, 79f),
+            )
+            lines.forEachIndexed { i, l ->
+                val t = strokes[i].value
+                if (t > 0f) drawLine(
+                    cream,
+                    androidx.compose.ui.geometry.Offset(l[0] * k, l[1] * k),
+                    androidx.compose.ui.geometry.Offset((l[0] + (l[2] - l[0]) * t) * k, (l[1] + (l[3] - l[1]) * t) * k),
+                    strokeWidth = 7.5f * k,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                )
+            }
+            val t = slash.value
+            if (t > 0f) {
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(22f * k, 66f * k); cubicTo(42f * k, 58f * k, 62f * k, 47f * k, 86f * k, 36f * k)
+                }
+                val measure = androidx.compose.ui.graphics.PathMeasure().apply { setPath(path, false) }
+                val part = androidx.compose.ui.graphics.Path()
+                measure.getSegment(0f, measure.length * t, part, true)
+                drawPath(part, Color(0xFFFF6B35), style = androidx.compose.ui.graphics.drawscope.Stroke(
+                    width = 8.5f * k, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            }
+        }
     }
 }

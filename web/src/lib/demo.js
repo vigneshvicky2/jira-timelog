@@ -2,12 +2,16 @@ import { addDays, isWeekend, todayIso } from './time.js'
 
 // Fake data for ?demo, so the UI can be explored and screenshotted without a Jira account.
 const SPRINT = 'Sprint 42'
+const H = 3600
+const st = (status, statusCategory, estimate, spent, remaining) => ({
+  status, statusCategory, tracking: { estimate, spent, remaining: remaining ?? (estimate != null ? Math.max(0, estimate - spent) : null) },
+})
 const ISSUES = [
-  { key: 'WEB-214', summary: 'Checkout page redesign', sprint: SPRINT },
-  { key: 'WEB-221', summary: 'Fix flaky payment webhook tests', sprint: SPRINT },
-  { key: 'WEB-230', summary: 'Accessibility audit fixes', sprint: SPRINT },
-  { key: 'WEB-198', summary: 'Team ceremonies', sprint: SPRINT },
-  { key: 'WEB-233', summary: 'Code reviews', sprint: SPRINT },
+  { key: 'WEB-214', summary: 'Checkout page redesign', sprint: SPRINT, ...st('In Progress', 'indeterminate', 16 * H, 9.5 * H) },
+  { key: 'WEB-221', summary: 'Fix flaky payment webhook tests', sprint: SPRINT, ...st('In Progress', 'indeterminate', 6 * H, 8 * H, 0) },
+  { key: 'WEB-230', summary: 'Accessibility audit fixes', sprint: SPRINT, ...st('To Do', 'new', 8 * H, 2 * H) },
+  { key: 'WEB-198', summary: 'Team ceremonies', sprint: SPRINT, ...st('In Progress', 'indeterminate', null, 12 * H, null) },
+  { key: 'WEB-233', summary: 'Code reviews', sprint: SPRINT, ...st('In Review', 'indeterminate', 10 * H, 4 * H) },
 ]
 const TIME_OFF = { key: 'WEB-200', summary: 'Time off' }
 const OTHER = [
@@ -62,8 +66,8 @@ export function createDemoJira() {
       const t = (text, marks) => ({ type: 'text', text, ...(marks ? { marks } : {}) })
       const p = (...content) => ({ type: 'paragraph', content })
       return {
-        key, summary: i.summary, type: key === TIME_OFF.key ? 'Task' : 'Story', status: 'In Progress',
-        statusCategory: 'indeterminate', priority: 'Medium', assignee: 'Alex Morgan', reporter: 'Sam Lee',
+        key, summary: i.summary, type: key === TIME_OFF.key ? 'Task' : 'Story', status: i.status || 'In Progress',
+        statusCategory: i.statusCategory || 'indeterminate', tracking: i.tracking || { estimate: null, spent: 0, remaining: null }, priority: 'Medium', assignee: 'Alex Morgan', reporter: 'Sam Lee',
         labels: ['frontend', 'q4'], url: `https://demo.atlassian.net/browse/${key}`,
         description: {
           type: 'doc', version: 1, content: [

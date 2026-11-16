@@ -104,7 +104,8 @@ class JiraApi(private val site: String, email: String, token: String) {
     /** Tickets assigned to the user in the currently active sprint(s), with the sprint name. */
     suspend fun currentSprintIssues(): List<Issue> = io {
         val field = runCatching { findSprintField() }.getOrNull()
-        val fields = JSONArray().put("summary").also { a -> field?.let { a.put(it) } }
+        val fields = JSONArray().put("summary").put("status").put("timetracking").put("timeoriginalestimate")
+            .put("timeestimate").put("timespent").also { a -> field?.let { a.put(it) } }
         val body = JSONObject()
             .put("jql", "sprint in openSprints() AND assignee = currentUser() ORDER BY updated DESC")
             .put("fields", fields)
@@ -119,7 +120,13 @@ class JiraApi(private val site: String, email: String, token: String) {
                 val s = sprints.optJSONObject(j) ?: continue
                 if (s.optString("state") == "active") name = s.optString("name")
             }
-            Issue(o.getString("key"), f?.optString("summary").orEmpty(), name)
+            val status = f?.optJSONObject("status")
+            Issue(
+                o.getString("key"), f?.optString("summary").orEmpty(), name,
+                status = status?.optString("name").orEmpty(),
+                statusCategory = status?.optJSONObject("statusCategory")?.optString("key").orEmpty(),
+                tracking = f?.let { trackingOf(it) },
+            )
         }
     }
 
@@ -154,7 +161,7 @@ class JiraApi(private val site: String, email: String, token: String) {
     /** Full details for the long-press preview: status, people and the formatted description. */
     suspend fun issueDetails(key: String): IssueDetails = io {
         val o = JSONObject(
-            request("GET", "/rest/api/3/issue/$key?fields=summary,description,status,priority,issuetype,assignee,reporter,labels")
+            request("GET", "/rest/api/3/issue/$key?fields=summary,description,status,priority,issuetype,assignee,reporter,labels,timetracking,timeoriginalestimate,timeestimate,timespent")
         )
         val f = o.optJSONObject("fields") ?: JSONObject()
         val status = f.optJSONObject("status")
@@ -171,6 +178,17 @@ class JiraApi(private val site: String, email: String, token: String) {
             labels = if (labels == null) emptyList() else (0 until labels.length()).map { labels.getString(it) },
             description = f.optJSONObject("description")?.let { adfBlocks(it) } ?: emptyList(),
             url = "https://$site/browse/${o.getString("key")}",
+            tracking = trackingOf(f),
+        )
+    }
+
+    private fun trackingOf(f: JSONObject): TimeTracking {
+        val t = f.optJSONObject("timetracking") ?: JSONObject()
+        fun num(o: JSONObject, name: String): Long? = if (o.has(name) && !o.isNull(name)) o.optLong(name) else null
+        return TimeTracking(
+            estimate = num(t, "originalEstimateSeconds") ?: num(f, "timeoriginalestimate"),
+            remaining = num(t, "remainingEstimateSeconds") ?: num(f, "timeestimate"),
+            spent = num(t, "timeSpentSeconds") ?: num(f, "timespent") ?: 0L,
         )
     }
 

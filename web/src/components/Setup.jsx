@@ -44,7 +44,7 @@ export default function Setup() {
         <motion.div className="logo-wrap" {...item(0)}>
           <img src="/favicon.svg" alt="" className="logo" />
         </motion.div>
-        <motion.h1 {...item(1)}>Timelog</motion.h1>
+        <motion.h1 {...item(1)}>Stint</motion.h1>
         <motion.p className="muted center" {...item(2)}>
           Log Jira time for several days in one go, with your meetings ready as suggestions.
         </motion.p>
@@ -86,7 +86,7 @@ export default function Setup() {
           </a>
         </motion.div>
         <motion.p {...item(6)} className="fine">
-          Your key is stored only in this browser and sent straight to your Jira site through Timelog's relay. Nothing is saved on a server.
+          Your key is stored only in this browser and sent straight to your Jira site through Stint's relay. Nothing is saved on a server.
         </motion.p>
       </motion.form>
     </motion.div>

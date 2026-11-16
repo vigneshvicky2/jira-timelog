@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Stint: a hand-drawn tally of four strokes crossed by a slash -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- clock ring -->
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:pathData="M54,32 A22,22 0 1,1 35,43" />
-    <!-- arrow head on ring -->
-    <path android:fillColor="#FFFFFF" android:pathData="M29,39 L39,37 L36,47 Z" />
-    <!-- hands -->
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="5"
-        android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M54,42 L54,55 L63,61" />
+    <group android:scaleX="0.7" android:scaleY="0.7" android:pivotX="54" android:pivotY="54">
+        <path android:strokeColor="#F4EFE6" android:strokeWidth="7.5" android:strokeLineCap="round" android:fillColor="#00000000"
+            android:pathData="M33,30.5 L32,77 M45.5,28 L45,79 M58,30 L58.5,77.5 M70.5,28.5 L70,79" />
+        <path android:strokeColor="#FF6B35" android:strokeWidth="8.5" android:strokeLineCap="round" android:fillColor="#00000000"
+            android:pathData="M22,66 C42,58 62,47 86,36" />
+    </group>
 </vector>

@@ -26,7 +26,7 @@ export default function Header({ onSettings, onToggleReview, reviewCount }) {
       <div className="brand">
         <img src="/favicon.svg" alt="" />
         <div>
-          <div className="brand-name">Timelog{DEMO && <span className="demo-tag">Demo</span>}</div>
+          <div className="brand-name">Stint{DEMO && <span className="demo-tag">Demo</span>}</div>
           <div className="muted small">{greeting}{first ? `, ${first}` : ''}</div>
         </div>
       </div>

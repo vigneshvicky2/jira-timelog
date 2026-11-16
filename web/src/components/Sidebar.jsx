@@ -1,3 +1,4 @@
+import ScrollArea from './ScrollArea.jsx'
 import { AnimatePresence, motion } from 'motion/react'
 import { useRef } from 'react'
 import { TARGET, addDays, addMonths, fmt, fromIso, isWeekend, monthLabel } from '../lib/time.js'
@@ -24,7 +25,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <ScrollArea hostClassName="side-host" className="sidebar">
       <div className="cal-head">
         <AnimatePresence mode="popLayout" initial={false} custom={dir.current}>
           <motion.div key={month} className="cal-title" custom={dir.current}
@@ -70,7 +71,7 @@ export default function Sidebar() {
         <div><kbd>↑↓←→</kbd> move in the grid · type <kbd>1.5</kbd> or <kbd>45m</kbd> to set time</div>
         <div><kbd>Del</kbd> clear cell · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> log all</div>
       </div>
-    </aside>
+    </ScrollArea>
   )
 }
 

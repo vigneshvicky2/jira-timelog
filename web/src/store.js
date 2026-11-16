@@ -124,6 +124,7 @@ export const useStore = create((set, get) => ({
   // ---------- loading ----------
   async refresh() {
     set({ loadedMonths: {} })
+    detailsCache.clear()
     await Promise.all([get().loadSprint(), get().ensureMonths(true)])
   },
 
@@ -349,6 +350,8 @@ export const useStore = create((set, get) => ({
       set({ progress: (i + 1) / batch.length })
     }
     set({ submitting: false })
+    detailsCache.clear()
+    if (ok) get().loadSprint()
     if (ok === batch.length) {
       set((s) => ({ celebrate: s.celebrate + 1 }))
       get().toast(`Logged ${ok} entr${ok === 1 ? 'y' : 'ies'} · ${fmt(total)}`, 'success')
@@ -363,6 +366,8 @@ export const useStore = create((set, get) => ({
   async deleteWorklog(w) {
     try {
       await api.deleteWorklog(w.key, w.id)
+      detailsCache.delete(w.key)
+      get().loadSprint()
       set((s) => ({ worklogs: { ...s.worklogs, [w.date]: (s.worklogs[w.date] || []).filter((x) => x.id !== w.id) } }))
       get().toast(`Removed ${fmt(w.seconds)} from ${w.key}`)
     } catch (e) {

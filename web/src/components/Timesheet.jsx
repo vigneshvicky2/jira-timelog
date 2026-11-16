@@ -2,6 +2,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TARGET, fmt, fmtTime, fromIso, isWeekend, parseDuration, relativeLabel } from '../lib/time.js'
 import { isLeaveDay, loggedOn, pendingOn, remainingOn, useStore } from '../store.js'
+import { progressOf } from '../lib/progress.js'
+import ScrollArea from './ScrollArea.jsx'
 import { Icon, KeyChip, Popover, Ring, Roll, Spinner } from './ui.jsx'
 
 const PRESETS = [15, 30, 45, 60, 90, 120, 180, 240]
@@ -107,7 +109,7 @@ export default function Timesheet({ onOpenSettings }) {
   }
 
   return (
-    <div className="sheet-wrap" ref={sheetRef} onKeyDown={onKeyDown}>
+    <ScrollArea hostClassName="sheet-host" className="sheet-wrap" innerRef={sheetRef} onKeyDown={onKeyDown}>
       <div className="sheet" style={{ '--cols': cols, minWidth }}>
         {/* day headers */}
         <div className="row head">
@@ -160,13 +162,14 @@ export default function Timesheet({ onOpenSettings }) {
               <div className="row"><div className="rowhead empty-row">{loading ? <><Spinner size={14} /> Loading your sprint…</> : 'No tickets assigned to you in the active sprint.'}</div></div>
             )}
             <AnimatePresence initial={false}>
-              {sec.rows.map((row) => {
+              {sec.rows.map((row, ri) => {
                 const r = rowIndex[row.key]
                 const rowTotal = days.reduce((a, d) => a + (index.pending[d + '|' + row.key]?.seconds || 0), 0)
                 return (
                   <motion.div key={row.key} className={'row ticket' + (sec.leave ? ' leave-row' : '')} layout="position"
-                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                    transition={{ duration: 0.28, ease }}>
+                    initial={{ opacity: 0, y: 16, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: -24, transition: { duration: 0.18 } }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.8, delay: Math.min(ri, 10) * 0.045 }}>
                     <div className="rowhead peekable" role="button" tabIndex={-1} title="Show ticket details"
                       onClick={(e) => { if (!e.target.closest('button')) openPeek(row) }}>
                       <div className="rh-line">
@@ -180,6 +183,7 @@ export default function Timesheet({ onOpenSettings }) {
                         )}
                       </div>
                       <div className="rh-summary" title={row.summary}>{row.summary}</div>
+                      {!sec.leave && <RowProgress row={row} pending={drafts.reduce((a, x) => (x.issue.key === row.key ? a + x.seconds : a), 0)} />}
                     </div>
                     {days.map((d, c) => (
                       <Cell key={d} r={r} c={c} date={d} leave={sec.leave}
@@ -214,7 +218,7 @@ export default function Timesheet({ onOpenSettings }) {
       <AnimatePresence>
         {dayMenu && <DayMenu key={dayMenu.d} {...dayMenu} onClose={() => setDayMenu(null)} />}
       </AnimatePresence>
-    </div>
+    </ScrollArea>
   )
 }
 
@@ -380,7 +384,7 @@ function CellEditor({ ed, onClose }) {
               {fmt(m * 60)}
             </motion.button>
           ))}
-          <motion.button className="chip accent wide" disabled={fill <= 0} whileTap={{ scale: 0.95 }} onClick={() => apply(fill)}>
+          <motion.button className="chip fill-day wide" disabled={fill <= 0} whileTap={{ scale: 0.95 }} onClick={() => apply(fill)}>
             Fill day {fill > 0 ? `· ${fmt(fill)}` : ''}
           </motion.button>
         </div>
@@ -646,6 +650,43 @@ function AddTicketRow() {
           </Popover>
         )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+/** Status, remaining time and a thin progress bar under each ticket. Rows outside the sprint load details lazily. */
+function RowProgress({ row, pending }) {
+  const issueDetails = useStore((s) => s.issueDetails)
+  const [info, setInfo] = useState(row.tracking ? row : null)
+  useEffect(() => {
+    if (row.tracking) return setInfo(row)
+    let live = true
+    issueDetails(row.key).then((d) => live && setInfo(d), () => {})
+    return () => { live = false }
+  }, [row, issueDetails])
+  if (!info) return <div className="rh-prog loading"><span className="rh-bar" /></div>
+  const p = progressOf(info.tracking, info.statusCategory, pending)
+  const tone = p.over > 0 || p.afterOver > 0 ? 'over' : p.todo && (p.spent > 0 || pending > 0) ? 'todo' : p.done ? 'done' : ''
+  const left = p.over > 0 ? `${fmt(p.over)} over` : p.remaining != null ? `${fmt(p.remaining)} left` : 'No estimate'
+  const title = [
+    `${info.status || 'Unknown status'}`,
+    `Logged ${fmt(p.spent)}${p.estimate ? ` of ${fmt(p.estimate)}` : ''}`,
+    p.over > 0 ? `Over by ${fmt(p.over)}` : p.remaining != null ? `${fmt(p.remaining)} remaining` : 'No estimate',
+    ...p.warnings.filter((w) => w.kind !== 'info').map((w) => w.text),
+  ].join('\n')
+  return (
+    <div className={'rh-prog ' + tone} title={title}>
+      <div className="rh-prog-line">
+        <span className={'status-pill mini ' + (info.statusCategory || '')}>{info.status || '—'}</span>
+        <span className="rh-left">{left}</span>
+        {p.estimate ? <span className="rh-of">{fmt(p.spent)}/{fmt(p.estimate)}</span> : p.spent > 0 ? <span className="rh-of">{fmt(p.spent)} logged</span> : null}
+      </div>
+      {p.total ? (
+        <div className="rh-bar">
+          <span className="rh-fill" style={{ width: `${p.pct * 100}%` }} />
+          {p.pendingPct > 0 && <span className="rh-pend" style={{ width: `${p.pendingPct * 100}%` }} />}
+        </div>
+      ) : null}
     </div>
   )
 }

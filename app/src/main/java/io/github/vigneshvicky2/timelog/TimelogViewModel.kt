@@ -164,6 +164,7 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         val a = api ?: return
+        detailsCache.clear()
         viewModelScope.launch {
             loading = true
             try {
@@ -233,6 +234,9 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- totals ----------
 
     fun loggedSeconds(d: LocalDate) = worklogs[d].orEmpty().sumOf { it.seconds }
+    /** Time queued for a ticket across all days that hasn't been sent to Jira yet. */
+    fun pendingFor(key: String) = drafts.filter { it.issue.key == key }.sumOf { it.seconds }
+
     fun pendingSeconds(d: LocalDate) = drafts.filter { it.date == d }.sumOf { it.seconds }
     fun remaining(d: LocalDate) = TARGET_SECONDS - loggedSeconds(d) - pendingSeconds(d)
 
@@ -405,6 +409,7 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
             batch.forEachIndexed { i, d ->
                 try {
                     a.addWorklog(d, zone)
+                    detailsCache.remove(d.issue.key)
                     drafts.removeAll { it.id == d.id }
                     ok++
                     total += d.seconds
@@ -430,6 +435,7 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 a.deleteWorklog(w.issueKey, w.id)
+                detailsCache.remove(w.issueKey)
                 worklogs = worklogs.mapValues { (_, v) -> v.filterNot { it.id == w.id } }
                 messages.tryEmit("Removed ${formatDuration(w.seconds)} from ${w.issueKey}")
             } catch (e: Exception) {

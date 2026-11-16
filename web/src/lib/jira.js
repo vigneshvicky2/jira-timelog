@@ -1,4 +1,5 @@
 import { addDays, fromIso, jiraStarted, parseStarted } from './time.js'
+import { TRACKING_FIELDS, trackingOf } from './progress.js'
 
 export class JiraError extends Error {
   constructor(status, message) {
@@ -67,12 +68,17 @@ export function createJira({ site, email, token }) {
       const field = await findSprintField()
       const issues = await search(
         'sprint in openSprints() AND assignee = currentUser() ORDER BY updated DESC',
-        ['summary', ...(field ? [field] : [])],
+        ['summary', ...TRACKING_FIELDS, ...(field ? [field] : [])],
       )
       return issues.map((o) => {
         const sprints = field ? o.fields?.[field] : null
         const active = Array.isArray(sprints) ? sprints.filter((s) => s.state === 'active').pop() : null
-        return toIssue(o, active?.name)
+        return {
+          ...toIssue(o, active?.name),
+          status: o.fields?.status?.name || '',
+          statusCategory: o.fields?.status?.statusCategory?.key || '',
+          tracking: trackingOf(o.fields),
+        }
       })
     },
 
@@ -136,7 +142,7 @@ export function createJira({ site, email, token }) {
     async issueDetails(key) {
         const o = await request(
           'GET',
-          `rest/api/3/issue/${key}?fields=summary,description,status,priority,issuetype,assignee,reporter,labels`,
+          `rest/api/3/issue/${key}?fields=summary,description,priority,issuetype,assignee,reporter,labels,${TRACKING_FIELDS.join(',')}`,
         )
         const f = o.fields || {}
         return {
@@ -149,6 +155,7 @@ export function createJira({ site, email, token }) {
           assignee: f.assignee?.displayName || null,
           reporter: f.reporter?.displayName || null,
           labels: f.labels || [],
+          tracking: trackingOf(f),
           description: f.description || null,
           url: `https://${site}/browse/${o.key}`,
         }

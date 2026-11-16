@@ -62,6 +62,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.foundation.verticalScroll
@@ -891,6 +892,26 @@ private fun SettingsDialog(vm: TimelogViewModel, onDismiss: () -> Unit) {
                             Text("Send a test reminder")
                         }
                     }
+                }
+
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 18.dp))
+                val uvm: io.github.vigneshvicky2.timelog.update.UpdateViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.SystemUpdate, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Stint ${uvm.currentVersion}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            when (val st = uvm.state) {
+                                is io.github.vigneshvicky2.timelog.update.UpdateState.Available -> "Version ${st.release.version} is available"
+                                io.github.vigneshvicky2.timelog.update.UpdateState.UpToDate -> "Up to date"
+                                else -> "Updates install from GitHub"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = { onDismiss(); uvm.check() }) { Text("Check") }
                 }
 
                 if (confirm) {

@@ -373,8 +373,9 @@ private fun DayPage(
                 free = remaining,
                 onSet = { vm.setTicketTime(day, issue, it) },
                 onComment = { vm.setTicketComment(day, issue.key, it) },
-                    onPeek = { vm.openPeek(issue) },
+                onPeek = { vm.openPeek(issue) },
                 modifier = Modifier.animateItem().enter(i + meetings.size),
+                pending = vm.pendingFor(issue.key),
             )
         }
 
@@ -677,6 +678,7 @@ private fun TicketCard(
     onComment: (String) -> Unit,
     onPeek: () -> Unit,
     modifier: Modifier = Modifier,
+    pending: Long = 0,
 ) {
     val cs = MaterialTheme.colorScheme
     val active = seconds > 0
@@ -730,6 +732,10 @@ private fun TicketCard(
                     Spacer(Modifier.height(8.dp))
                     Text(issue.summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    issue.tracking?.let { t ->
+                        Spacer(Modifier.height(10.dp))
+                        TicketProgressStrip(issue.status, issue.statusCategory, t, pending)
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 AnimatedContent(

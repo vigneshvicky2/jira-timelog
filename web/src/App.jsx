@@ -67,7 +67,7 @@ function PeekHost() {
   return <AnimatePresence>{peek && <IssuePeek key={peek.key} issue={peek} />}</AnimatePresence>
 }
 
-/** Fires the daily reminder while a Timelog tab is open. */
+/** Fires the daily reminder while a Stint tab is open. */
 function useReminders() {
   const { enabled, time, weekdaysOnly } = useStore((s) => s.settings.reminder)
   useEffect(() => {

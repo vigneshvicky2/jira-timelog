@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store.js'
+import { progressOf } from '../lib/progress.js'
+import { fmt } from '../lib/time.js'
 import { Icon, KeyChip } from './ui.jsx'
 
 /**
@@ -11,6 +13,8 @@ import { Icon, KeyChip } from './ui.jsx'
 export default function IssuePeek({ issue }) {
   const closePeek = useStore((s) => s.closePeek)
   const issueDetails = useStore((s) => s.issueDetails)
+  const drafts = useStore((s) => s.drafts)
+  const pending = useMemo(() => drafts.reduce((a, x) => (x.issue.key === issue.key ? a + x.seconds : a), 0), [drafts, issue.key])
   const [state, setState] = useState({ status: 'loading' })
 
   useEffect(() => {
@@ -75,6 +79,7 @@ export default function IssuePeek({ issue }) {
                     {d.labels.slice(0, 5).map((l) => <span key={l} className="meta-chip">{l}</span>)}
                   </div>
                 )}
+                <Progress d={d} pending={pending} />
                 <div className="peek-label">Description</div>
                 {d.description?.content?.length ? (
                   <div className="adf"><Adf node={d.description} /></div>
@@ -96,6 +101,46 @@ export default function IssuePeek({ issue }) {
       </motion.div>
     </motion.div>,
     document.body,
+  )
+}
+
+/** Status, logged vs estimate, remaining time and warnings for over-logging or To Do tickets. */
+function Progress({ d, pending }) {
+  const p = progressOf(d.tracking, d.statusCategory, pending)
+  const tone = p.over > 0 || p.afterOver > 0 ? 'over' : p.todo && (p.spent > 0 || pending > 0) ? 'todo' : p.done ? 'done' : ''
+  return (
+    <div className={'progress-card ' + tone}>
+      <div className="peek-label" style={{ marginTop: 0 }}>Progress</div>
+      <div className="pg-stats">
+        <Stat label="Status" value={d.status || '—'} />
+        <Stat label="Logged" value={fmt(p.spent)} />
+        <Stat label="Estimate" value={p.estimate ? fmt(p.estimate) : '—'} />
+        <Stat label={p.over > 0 ? 'Over by' : 'Remaining'} value={p.over > 0 ? fmt(p.over) : p.remaining != null ? fmt(p.remaining) : '—'}
+          className={p.over > 0 ? 'bad' : ''} />
+      </div>
+      {p.total ? (
+        <div className="pg-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p.pct * 100)}>
+          <motion.span className="pg-fill" initial={{ width: 0 }} animate={{ width: `${p.pct * 100}%` }} transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }} />
+          {p.pendingPct > 0 && <motion.span className="pg-pending" initial={{ width: 0 }} animate={{ width: `${p.pendingPct * 100}%` }} transition={{ duration: 0.7, delay: 0.2 }} />}
+        </div>
+      ) : null}
+      <div className="pg-caption muted small">
+        {p.total ? `${Math.round((p.spent / p.total) * 100)}% of ${fmt(p.total)} used` : 'No estimate set'}
+        {pending > 0 && ` · ${fmt(pending)} pending${p.afterRemaining != null ? `, ${fmt(p.afterRemaining)} left after logging` : ''}`}
+      </div>
+      {p.warnings.map((w, i) => (
+        <div key={i} className={'pg-warn ' + w.kind}><Icon name={w.kind === 'info' ? 'info' : 'flag'} size={14} />{w.text}</div>
+      ))}
+    </div>
+  )
+}
+
+function Stat({ label, value, className = '' }) {
+  return (
+    <div className={'pg-stat ' + className}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 

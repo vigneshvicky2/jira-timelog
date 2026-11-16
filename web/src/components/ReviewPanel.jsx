@@ -1,3 +1,4 @@
+import ScrollArea from './ScrollArea.jsx'
 import { AnimatePresence, motion } from 'motion/react'
 import { useMemo, useState } from 'react'
 import { fmt, fmtTime, fromIso } from '../lib/time.js'
@@ -48,7 +49,7 @@ export default function ReviewPanel({ open, onClose }) {
         </div>
       </div>
 
-      <div className="review-list">
+      <ScrollArea hostClassName="review-host" className="review-list">
         <AnimatePresence initial={false}>
           {groups.map(([date, items]) => (
             <motion.section key={date} layout className="rv-group"
@@ -90,7 +91,7 @@ export default function ReviewPanel({ open, onClose }) {
           </motion.div>
         )}
         <LoggedSection />
-      </div>
+      </ScrollArea>
 
       <div className="review-foot">
         <AnimatePresence>

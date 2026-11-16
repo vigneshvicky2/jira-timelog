@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
                     label = "root",
                 ) { ready -> EntranceScope { if (ready) HomeScreen(vm) else SetupScreen(vm) } }
                     io.github.vigneshvicky2.timelog.ui.IssuePeekHost(vm)
+                    io.github.vigneshvicky2.timelog.update.UpdateHost(viewModel())
                 } }
             }
         }

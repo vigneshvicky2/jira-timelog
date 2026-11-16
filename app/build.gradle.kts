@@ -24,8 +24,8 @@ android {
         applicationId = "io.github.vigneshvicky2.timelog"
         minSdk = 31
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {
@@ -67,5 +67,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.core:core:1.15.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
 }

@@ -115,7 +115,7 @@ export default function Settings({ onClose }) {
         <label className="switch-row">
           <div>
             <div className="strong"><Icon name="bell" size={15} /> Remind me to log time</div>
-            <div className="muted small">A browser notification with a different fun message each day (while Timelog is open in a tab).</div>
+            <div className="muted small">A browser notification with a different fun message each day (while Stint is open in a tab).</div>
           </div>
           <Switch on={rem.enabled} onChange={(v) => setReminder({ enabled: v })} />
         </label>
@@ -167,7 +167,7 @@ function ScriptGuide({ onCopied }) {
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }} style={{ overflow: 'hidden' }}>
             <p className="muted small">
               Your admin has turned it off. A tiny Apps Script in your own Google account can share your meeting titles and
-              times with Timelog instead. No Google sign-in or third-party app is involved.
+              times with Stint instead. No Google sign-in or third-party app is involved.
             </p>
             <ol className="steps">
               <li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noreferrer">script.google.com → New project</a> while signed in to your work account.</li>

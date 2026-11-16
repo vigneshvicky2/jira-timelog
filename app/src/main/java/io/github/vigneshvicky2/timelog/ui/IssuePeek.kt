@@ -83,6 +83,12 @@ import io.github.vigneshvicky2.timelog.data.DescBlock
 import io.github.vigneshvicky2.timelog.data.Issue
 import io.github.vigneshvicky2.timelog.data.IssueDetails
 import io.github.vigneshvicky2.timelog.data.Span
+import io.github.vigneshvicky2.timelog.data.TicketProgress
+import io.github.vigneshvicky2.timelog.formatDuration
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.ui.text.style.TextOverflow
 
 private sealed interface PeekLoad {
     data object Loading : PeekLoad
@@ -200,7 +206,7 @@ private fun PeekContent(vm: TimelogViewModel, issue: Issue) {
                         Spacer(Modifier.width(10.dp))
                         Text(state.message, color = cs.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
                     }
-                    is PeekLoad.Ready -> DetailsBody(state.d)
+                    is PeekLoad.Ready -> DetailsBody(state.d, vm.pendingFor(issue.key))
                 }
             }
         }
@@ -223,7 +229,7 @@ private fun PeekContent(vm: TimelogViewModel, issue: Issue) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DetailsBody(d: IssueDetails) {
+private fun DetailsBody(d: IssueDetails, pending: Long) {
     val cs = MaterialTheme.colorScheme
     Column {
         // people & priority
@@ -236,6 +242,9 @@ private fun DetailsBody(d: IssueDetails) {
             d.priority?.let { MetaChip(Icons.Outlined.Flag, it) }
             d.labels.take(4).forEach { MetaChip(null, it) }
         }
+
+        Spacer(Modifier.height(16.dp))
+        ProgressCard(d, pending)
 
         Spacer(Modifier.height(18.dp))
         SectionLabel("Description")
@@ -256,6 +265,149 @@ private fun DetailsBody(d: IssueDetails) {
             Text("Reported by $it", style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** Status, logged vs estimate, remaining time, and warnings for over-logging or To Do tickets. */
+@Composable
+private fun ProgressCard(d: IssueDetails, pending: Long) {
+    val cs = MaterialTheme.colorScheme
+    val p = TicketProgress.of(d.tracking, d.statusCategory, pending, ::formatDuration)
+    val todo = d.statusCategory == "new"
+    val accent = when {
+        p.over > 0 || p.afterOver > 0 -> OverColor
+        todo && (p.spent > 0 || pending > 0) -> WeekendColor
+        d.statusCategory == "done" -> DoneColor
+        else -> cs.primary
+    }
+    val flagged = accent == OverColor || accent == WeekendColor
+    val anim = remember(d.key) { Animatable(0f) }
+    LaunchedEffect(d.key, p.fraction) { anim.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = cs.surfaceContainer,
+        border = BorderStroke(1.dp, if (flagged) accent.copy(alpha = 0.55f) else cs.outlineVariant.copy(alpha = 0.6f)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            SectionLabel("Progress")
+            Row(Modifier.fillMaxWidth()) {
+                Stat("Status", d.status.ifBlank { "—" }, Modifier.weight(1.3f))
+                Stat("Logged", formatDuration(p.spent), Modifier.weight(1f))
+                Stat("Estimate", p.estimate?.let(::formatDuration) ?: "—", Modifier.weight(1f))
+                if (p.over > 0) Stat("Over by", formatDuration(p.over), Modifier.weight(1f), OverColor)
+                else Stat("Left", p.remaining?.let(::formatDuration) ?: "—", Modifier.weight(1f))
+            }
+            if (p.total != null && p.total > 0) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(cs.surfaceContainerHighest)) {
+                    val fill = p.fraction * anim.value
+                    val pend = p.pendingFraction * anim.value
+                    if (fill > 0f) Box(Modifier.fillMaxWidth(fill).height(8.dp).clip(CircleShape).background(accent))
+                    if (pend > 0f) Box(
+                        Modifier.fillMaxWidth((pend / (1f - fill).coerceAtLeast(0.001f)).coerceAtMost(1f)).height(8.dp)
+                            .background(cs.primary.copy(alpha = 0.35f))
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            val caption = buildString {
+                if (p.total != null && p.total > 0) append("${(p.spent * 100 / p.total)}% of ${formatDuration(p.total)} used")
+                else append("No estimate set")
+                if (pending > 0) {
+                    append(" · ${formatDuration(pending)} pending")
+                    p.afterRemaining?.let { append(", ${formatDuration(it)} left after logging") }
+                }
+            }
+            Text(caption, style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+            p.warnings.forEach { (kind, text) ->
+                val c = when (kind) {
+                    TicketProgress.WarnKind.Over -> OverColor
+                    TicketProgress.WarnKind.Status -> WeekendColor
+                    TicketProgress.WarnKind.Info -> cs.onSurfaceVariant
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.copy(alpha = 0.14f)).padding(10.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Icon(
+                        if (kind == TicketProgress.WarnKind.Info) Icons.Outlined.Info else Icons.Outlined.Flag,
+                        null, Modifier.size(16.dp).padding(top = 1.dp), tint = c,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = cs.onSurface)
+                }
+            }
+        }
+    }
+}
+
+/** Compact status · remaining · logged/estimate line with a thin bar, for ticket cards. */
+@Composable
+fun TicketProgressStrip(status: String, statusCategory: String, tracking: io.github.vigneshvicky2.timelog.data.TimeTracking, pending: Long) {
+    val cs = MaterialTheme.colorScheme
+    val p = TicketProgress.of(tracking, statusCategory, pending, ::formatDuration)
+    val todo = statusCategory == "new"
+    val accent = when {
+        p.over > 0 || p.afterOver > 0 -> OverColor
+        todo -> WeekendColor
+        statusCategory == "done" -> DoneColor
+        else -> cs.primary
+    }
+    val fill by androidx.compose.animation.core.animateFloatAsState(p.fraction, tween(600), label = "fill")
+    val pend by androidx.compose.animation.core.animateFloatAsState(p.pendingFraction, tween(600), label = "pend")
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = accent.copy(alpha = 0.16f), contentColor = accent, shape = CircleShape) {
+                Text(
+                    status.ifBlank { "—" }.uppercase(),
+                    style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 120.dp).padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                when {
+                    p.over > 0 -> "${formatDuration(p.over)} over"
+                    p.remaining != null -> "${formatDuration(p.remaining)} left"
+                    else -> "No estimate"
+                },
+                style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+                color = if (p.over > 0) OverColor else cs.onSurface,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                p.estimate?.let { "${formatDuration(p.spent)}/${formatDuration(it)}" }
+                    ?: if (p.spent > 0) "${formatDuration(p.spent)} logged" else "",
+                style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant,
+            )
+        }
+        if (p.total != null && p.total > 0) {
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(cs.surfaceContainerHighest)) {
+                if (fill > 0f) Box(Modifier.fillMaxWidth(fill).height(4.dp).background(accent))
+                if (pend > 0f) Box(
+                    Modifier.fillMaxWidth((pend / (1f - fill).coerceAtLeast(0.001f)).coerceAtMost(1f)).height(4.dp)
+                        .background(cs.primary.copy(alpha = 0.35f))
+                )
+            }
+        }
+        if (todo && (p.spent > 0 || pending > 0)) {
+            Spacer(Modifier.height(6.dp))
+            Text("Ticket is still To Do", style = MaterialTheme.typography.labelSmall, color = WeekendColor, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun Stat(label: String, value: String, modifier: Modifier, color: Color = Color.Unspecified) {
+    Column(modifier.padding(end = 6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
