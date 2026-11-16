@@ -1,4 +1,4 @@
-# Timelog
+# Stint
 
 A Material You Android companion app for logging Jira Cloud time, built for people who log two or three days at once.
 
@@ -13,6 +13,8 @@ Pick the days, tap time onto your sprint tickets and meetings, and send everythi
 - **Leave.** The app finds your sprint's shared "Time off" ticket automatically. Log a full day, half day or custom time, with an optional reason, for one day or all selected days.
 - **Calendar strip.** Weekends and leave days have their own colours.
 - **Daily reminder.** A notification at a time you choose, optionally on weekdays only, with 30 rotating messages.
+- **Ticket progress.** Every sprint ticket shows its status, time left and a progress bar. The preview shows logged vs estimate and warns when a ticket is over-logged, still To Do, or about to go over.
+- **In-app updates.** Stint checks GitHub Releases, downloads the new APK and opens the installer, then shows what's new once.
 - **Review before sending.** Pending entries can be edited or deleted. Failed entries stay in the list with the reason.
 - **Smooth animations throughout:** press feedback, rolling numbers, staggered entrances, and confetti when everything is logged.
 
@@ -38,7 +40,7 @@ npx vercel --prod        # deploy (after `npx vercel login`)
 
 1. Install the APK from [Releases](../../releases).
 2. Create an API token at <https://id.atlassian.com/manage-profile/security/api-tokens>.
-3. Open Timelog and enter your Jira site (e.g. `your-team.atlassian.net`), your Atlassian email, and the API token.
+3. Open Stint and enter your Jira site (e.g. `your-team.atlassian.net`), your Atlassian email, and the API token.
 4. Allow calendar access to see meetings. If none show up, turn on **Calendar sync** for your work Google account in Android settings.
 
 ## Privacy
@@ -54,6 +56,6 @@ Requirements: JDK 17+ and the Android SDK (compileSdk 36).
 ./gradlew assembleRelease
 ```
 
-Release builds are signed with the key described by the properties file at `$TIMELOG_SIGNING` (default `~/.android-keys/timelog.properties`, containing `storeFile`, `storePassword`, `keyAlias` and `keyPassword`). Without one, the local debug key is used.
+Release builds are signed with the key described by the properties file at `$TIMELOG_SIGNING` (default `~/.android-keys/timelog.properties`, containing `storeFile`, `storePassword`, `keyAlias` and `keyPassword`). Without one, the local debug key is used. In-app updates only install over the previous version when every release is signed with the same key, so back the key up.
 
 Tech: Kotlin, Jetpack Compose, Material 3 (dynamic color), Jira Cloud REST API v3, Android CalendarContract, AlarmManager. Minimum Android 12.
