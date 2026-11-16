@@ -365,7 +365,8 @@ fun TicketProgressStrip(status: String, statusCategory: String, tracking: io.git
                     status.ifBlank { "—" }.uppercase(),
                     style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 120.dp).padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier = Modifier.widthIn(max = 130.dp).padding(horizontal = 8.dp, vertical = 3.dp),
+                    softWrap = false,
                 )
             }
             Spacer(Modifier.width(8.dp))
@@ -377,12 +378,15 @@ fun TicketProgressStrip(status: String, statusCategory: String, tracking: io.git
                 },
                 style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
                 color = if (p.over > 0) OverColor else cs.onSurface,
+                maxLines = 1, softWrap = false,
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
             Text(
-                p.estimate?.let { "${formatDuration(p.spent)}/${formatDuration(it)}" }
+                p.estimate?.let { "${formatDuration(p.spent)} of ${formatDuration(it)}" }
                     ?: if (p.spent > 0) "${formatDuration(p.spent)} logged" else "",
                 style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                modifier = Modifier.weight(1f),
             )
         }
         if (p.total != null && p.total > 0) {

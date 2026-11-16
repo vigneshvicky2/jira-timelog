@@ -732,10 +732,6 @@ private fun TicketCard(
                     Spacer(Modifier.height(8.dp))
                     Text(issue.summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    issue.tracking?.let { t ->
-                        Spacer(Modifier.height(10.dp))
-                        TicketProgressStrip(issue.status, issue.statusCategory, t, pending)
-                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 AnimatedContent(
@@ -769,6 +765,11 @@ private fun TicketCard(
                         },
                     ) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = cs.error) }
                 }
+            }
+
+            issue.tracking?.let { t ->
+                Spacer(Modifier.height(14.dp))
+                TicketProgressStrip(issue.status, issue.statusCategory, t, pending)
             }
 
             Spacer(Modifier.height(16.dp))
