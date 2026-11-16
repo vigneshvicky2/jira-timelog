@@ -156,7 +156,7 @@ fun IssuePeekHost(vm: TimelogViewModel) {
 @Composable
 private fun PeekContent(vm: TimelogViewModel, issue: Issue) {
     var load by remember(issue.key) { mutableStateOf<PeekLoad>(PeekLoad.Loading) }
-    LaunchedEffect(issue.key) {
+    LaunchedEffect(issue.key, vm.peekRefresh) {
         load = vm.issueDetails(issue.key).fold({ PeekLoad.Ready(it) }, { PeekLoad.Failed(it.message ?: "Couldn't load") })
     }
     val uri = LocalUriHandler.current
@@ -206,7 +206,7 @@ private fun PeekContent(vm: TimelogViewModel, issue: Issue) {
                         Spacer(Modifier.width(10.dp))
                         Text(state.message, color = cs.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
                     }
-                    is PeekLoad.Ready -> DetailsBody(state.d, vm.pendingFor(issue.key))
+                    is PeekLoad.Ready -> DetailsBody(state.d, vm.pendingFor(issue.key)) { vm.moveToInProgress(issue) }
                 }
             }
         }
@@ -229,7 +229,7 @@ private fun PeekContent(vm: TimelogViewModel, issue: Issue) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DetailsBody(d: IssueDetails, pending: Long) {
+private fun DetailsBody(d: IssueDetails, pending: Long, onStart: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column {
         // people & priority
@@ -244,7 +244,7 @@ private fun DetailsBody(d: IssueDetails, pending: Long) {
         }
 
         Spacer(Modifier.height(16.dp))
-        ProgressCard(d, pending)
+        ProgressCard(d, pending, onStart)
 
         Spacer(Modifier.height(18.dp))
         SectionLabel("Description")
@@ -270,7 +270,7 @@ private fun DetailsBody(d: IssueDetails, pending: Long) {
 
 /** Status, logged vs estimate, remaining time, and warnings for over-logging or To Do tickets. */
 @Composable
-private fun ProgressCard(d: IssueDetails, pending: Long) {
+private fun ProgressCard(d: IssueDetails, pending: Long, onStart: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val p = TicketProgress.of(d.tracking, d.statusCategory, pending, ::formatDuration)
     val todo = d.statusCategory == "new"
@@ -339,6 +339,15 @@ private fun ProgressCard(d: IssueDetails, pending: Long) {
                     Spacer(Modifier.width(8.dp))
                     Text(text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = cs.onSurface)
                 }
+            }
+            if (todo && (p.spent > 0 || pending > 0)) {
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.material3.Button(
+                    onClick = onStart,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = TodoColor, contentColor = Color(0xFF2A0A12)),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                ) { Text("Move to In Progress", fontWeight = FontWeight.Bold) }
             }
         }
     }

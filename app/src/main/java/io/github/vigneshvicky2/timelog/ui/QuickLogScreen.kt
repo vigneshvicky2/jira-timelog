@@ -800,22 +800,31 @@ private fun DurationChips(seconds: Long, free: Long?, onSet: (Long) -> Unit) {
     var custom by remember { mutableStateOf(false) }
     val isPreset = PRESET_MINUTES.any { it * 60L == seconds }
     val customOn = seconds > 0 && !isPreset
-    Row(
-        Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TimeChip(
-            icon = Icons.Rounded.Edit,
-            label = if (customOn) durationLabel(seconds) else "Custom",
-            selected = customOn,
-            onClick = { custom = true },
-        )
-        PRESET_MINUTES.forEach { m ->
-            TimeChip(label = durationLabel(m * 60L), selected = seconds == m * 60L, onClick = { onSet(m * 60L) })
+    // a grid, so every option is visible without sideways scrolling
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PRESET_MINUTES.chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { m ->
+                    TimeChip(label = durationLabel(m * 60L), selected = seconds == m * 60L, modifier = Modifier.weight(1f),
+                        onClick = { onSet(m * 60L) })
+                }
+            }
         }
-        if (free != null) {
-            TimeChip(label = "Fill day", strong = true, enabled = free > 0, onClick = { onSet(seconds + free) })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TimeChip(
+                icon = Icons.Rounded.Edit,
+                label = if (customOn) durationLabel(seconds) else "Custom",
+                selected = customOn,
+                modifier = Modifier.weight(if (free != null) 1.3f else 1f),
+                onClick = { custom = true },
+            )
+            if (free != null) {
+                TimeChip(
+                    label = if (free > 0) "Fill day · ${durationLabel(free)}" else "Day is full",
+                    strong = true, enabled = free > 0, modifier = Modifier.weight(2f),
+                    onClick = { onSet(seconds + free) },
+                )
+            }
         }
     }
     if (custom) {
@@ -878,33 +887,36 @@ private fun TimeChip(
     strong: Boolean = false,
     enabled: Boolean = true,
     selected: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val alpha by animateFloatAsState(if (enabled) 1f else 0.38f, tween(200), label = "chip")
     val bg by animateColorAsState(
-        when { selected -> cs.primary; strong -> cs.tertiary; else -> cs.surface }, tween(200), label = "cbg"
+        when { selected -> cs.onSurface; strong -> cs.primary; else -> cs.surfaceContainerHighest }, tween(200), label = "cbg"
     )
     val fg by animateColorAsState(
-        when { selected -> cs.onPrimary; strong -> cs.onTertiary; else -> cs.onSurface }, tween(200), label = "cfg"
+        when { selected -> cs.surface; strong -> cs.onPrimary; else -> cs.onSurface }, tween(200), label = "cfg"
     )
     val press = rememberPress(0.9f)
     Surface(
         onClick = onClick,
         enabled = enabled,
         interactionSource = press.source,
-        shape = CircleShape,
+        shape = RoundedCornerShape(14.dp),
         color = bg,
         contentColor = fg,
-        modifier = Modifier.graphicsLayer { this.alpha = alpha }.then(press.modifier),
+        modifier = modifier.graphicsLayer { this.alpha = alpha }.then(press.modifier),
     ) {
         Row(
-            Modifier.height(44.dp).padding(horizontal = if (label != null) 18.dp else 12.dp),
+            Modifier.height(44.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
             if (icon != null) Icon(icon, null, Modifier.size(20.dp))
             if (icon != null && label != null) Spacer(Modifier.width(4.dp))
-            if (label != null) Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            if (label != null) Text(label, style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (strong) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

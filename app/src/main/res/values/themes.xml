@@ -3,6 +3,6 @@
     <style name="Theme.Timelog" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
     </style>
-    <color name="bg">#FFFBFE</color>
-    <color name="icon_bg">#5B4BDB</color>
+    <color name="bg">#F6F4EF</color>
+    <color name="icon_bg">#16151F</color>
 </resources>

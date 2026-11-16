@@ -192,6 +192,21 @@ class JiraApi(private val site: String, email: String, token: String) {
         )
     }
 
+    /**
+     * Moves a ticket into its workflow's "in progress" status. Picks the transition whose target
+     * status is in the In Progress category, preferring one actually named "In Progress".
+     * Returns the new status name, or null when the workflow has no such transition.
+     */
+    suspend fun startProgress(key: String): String? = io {
+        val arr = JSONObject(request("GET", "/rest/api/3/issue/$key/transitions")).optJSONArray("transitions") ?: JSONArray()
+        val all = (0 until arr.length()).map { arr.getJSONObject(it) }
+        val candidates = all.filter { it.optJSONObject("to")?.optJSONObject("statusCategory")?.optString("key") == "indeterminate" }
+        val pick = candidates.firstOrNull { it.optJSONObject("to")?.optString("name").orEmpty().contains("progress", true) }
+            ?: candidates.firstOrNull() ?: return@io null
+        request("POST", "/rest/api/3/issue/$key/transitions", JSONObject().put("transition", JSONObject().put("id", pick.getString("id"))))
+        pick.optJSONObject("to")?.optString("name")
+    }
+
     suspend fun issue(key: String): Issue = io {
         val o = JSONObject(request("GET", "/rest/api/3/issue/$key?fields=summary"))
         Issue(o.getString("key"), o.optJSONObject("fields")?.optString("summary").orEmpty())

@@ -650,3 +650,4 @@ kbd {
 .chip.fill-day { background: var(--primary); color: var(--on-primary); border-color: transparent; font-weight: 700; box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 30%, transparent); }
 .chip.fill-day:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 88%, white); color: var(--on-primary); border-color: transparent; }
 .chip.fill-day:disabled { background: var(--surface-3); color: var(--muted); box-shadow: none; }
+.built-by { font-size: 11.5px; font-weight: 600; color: var(--muted); text-align: center; letter-spacing: 0.01em; }

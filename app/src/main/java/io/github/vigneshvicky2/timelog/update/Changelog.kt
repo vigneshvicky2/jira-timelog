@@ -5,6 +5,16 @@ data class ChangelogEntry(val version: String, val title: String, val items: Lis
 
 val CHANGELOG = listOf(
     ChangelogEntry(
+        "1.3.0", "A fresh new look",
+        listOf(
+            "New Stint design: charcoal and cream, bold numbers, cobalt for actions.",
+            "Home shows today's ring, tickets that need attention, and your sprint with time left on each.",
+            "Move a To Do ticket to In Progress right from Stint.",
+            "Pending entries are tagged when they're over estimate or on a To Do ticket.",
+            "Time buttons sit in a grid, so nothing gets cut off.",
+        ),
+    ),
+    ChangelogEntry(
         "1.2.1", "Cleaner ticket cards",
         listOf(
             "Ticket progress now uses the full width of the card, so long times no longer wrap.",

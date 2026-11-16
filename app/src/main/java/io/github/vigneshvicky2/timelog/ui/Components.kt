@@ -72,15 +72,104 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 val OverColor = Color(0xFFFF8A3D)
-val DoneColor = Color(0xFF2EBD85)
-val WeekendColor = Color(0xFFE8687A)
-val LeaveColor = Color(0xFF14B8A6)
+val DoneColor = Color(0xFF3DD68C)
+val WeekendColor = Color(0xFFF2708A)
+val LeaveColor = Color(0xFF2DD4BF)
+/** The orange slash in the logo; used sparingly for the add button. */
+val BrandColor = Color(0xFFFF6B35)
+val TodoColor = WeekendColor
+
+private val StintDark = androidx.compose.material3.darkColorScheme(
+    primary = Color(0xFF7D9BFF), onPrimary = Color(0xFF0D1430),
+    primaryContainer = Color(0xFF232B47), onPrimaryContainer = Color(0xFFC3D0FF),
+    inversePrimary = Color(0xFF2F55E4),
+    secondary = Color(0xFFC9C6BF), onSecondary = Color(0xFF111113),
+    secondaryContainer = Color(0xFF2A2A31), onSecondaryContainer = Color(0xFFF3F1EC),
+    tertiary = Color(0xFF3E4E86), onTertiary = Color(0xFFF3F1EC),
+    tertiaryContainer = Color(0xFF1F2236), onTertiaryContainer = Color(0xFFC3D0FF),
+    background = Color(0xFF111113), onBackground = Color(0xFFF3F1EC),
+    surface = Color(0xFF111113), onSurface = Color(0xFFF3F1EC),
+    surfaceVariant = Color(0xFF24242A), onSurfaceVariant = Color(0xFFA29F98),
+    surfaceContainerLowest = Color(0xFF0C0C0E), surfaceContainerLow = Color(0xFF18181C),
+    surfaceContainer = Color(0xFF1B1B1F), surfaceContainerHigh = Color(0xFF212127),
+    surfaceContainerHighest = Color(0xFF2A2A31),
+    inverseSurface = Color(0xFFF3F1EC), inverseOnSurface = Color(0xFF111113),
+    outline = Color(0xFF4A4A52), outlineVariant = Color(0xFF2E2E35),
+    error = Color(0xFFFF6B6B), onError = Color(0xFF2A0A0A),
+    errorContainer = Color(0xFF3A1A1E), onErrorContainer = Color(0xFFFFC7C7),
+)
+
+private val StintLight = androidx.compose.material3.lightColorScheme(
+    primary = Color(0xFF2F55E4), onPrimary = Color.White,
+    primaryContainer = Color(0xFFE7ECFD), onPrimaryContainer = Color(0xFF1E3DB0),
+    inversePrimary = Color(0xFF7D9BFF),
+    secondary = Color(0xFF4A4742), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFECE8DF), onSecondaryContainer = Color(0xFF16151F),
+    tertiary = Color(0xFFA9B9F3), onTertiary = Color(0xFF16151F),
+    tertiaryContainer = Color(0xFFE7ECFD), onTertiaryContainer = Color(0xFF1E3DB0),
+    background = Color(0xFFF6F4EF), onBackground = Color(0xFF16151F),
+    surface = Color(0xFFF6F4EF), onSurface = Color(0xFF16151F),
+    surfaceVariant = Color(0xFFECE8DF), onSurfaceVariant = Color(0xFF66625C),
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFFFFDF9),
+    surfaceContainer = Color(0xFFFFFDF9), surfaceContainerHigh = Color(0xFFF3F0E9),
+    surfaceContainerHighest = Color(0xFFECE8DF),
+    inverseSurface = Color(0xFF16151F), inverseOnSurface = Color(0xFFF3F1EC),
+    outline = Color(0xFFB9B3A7), outlineVariant = Color(0xFFE6E1D7),
+    error = Color(0xFFC62E3C), onError = Color.White,
+    errorContainer = Color(0xFFFBE4E8), onErrorContainer = Color(0xFF8E1E37),
+)
+
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun bricolage(w: Int) = androidx.compose.ui.text.font.Font(
+    io.github.vigneshvicky2.timelog.R.font.bricolage,
+    weight = FontWeight(w),
+    variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(
+        androidx.compose.ui.text.font.FontVariation.weight(w),
+    ),
+)
+
+/** Bricolage Grotesque for headings and big numbers; body text stays on the system sans. */
+val Display = androidx.compose.ui.text.font.FontFamily(bricolage(600), bricolage(700), bricolage(800))
+
+private fun stintType(): androidx.compose.material3.Typography {
+    val t = androidx.compose.material3.Typography()
+    fun androidx.compose.ui.text.TextStyle.d(w: FontWeight = FontWeight.ExtraBold, ls: Float = -0.02f) =
+        copy(fontFamily = Display, fontWeight = w, letterSpacing = androidx.compose.ui.unit.TextUnit(ls, androidx.compose.ui.unit.TextUnitType.Em))
+    return t.copy(
+        displayLarge = t.displayLarge.d(), displayMedium = t.displayMedium.d(), displaySmall = t.displaySmall.d(ls = -0.03f),
+        headlineLarge = t.headlineLarge.d(), headlineMedium = t.headlineMedium.d(), headlineSmall = t.headlineSmall.d(),
+        titleLarge = t.titleLarge.d(), titleMedium = t.titleMedium.d(FontWeight.Bold, -0.01f),
+    )
+}
 
 @Composable
 fun TimelogTheme(content: @Composable () -> Unit) {
-    val ctx = LocalContext.current
-    val scheme = if (isSystemInDarkTheme()) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-    MaterialTheme(colorScheme = scheme, content = content)
+    val scheme = if (isSystemInDarkTheme()) StintDark else StintLight
+    MaterialTheme(colorScheme = scheme, typography = stintType(), content = content)
+}
+
+/** The Stint mark: four tally strokes crossed by an orange slash, on a dark tile. */
+@Composable
+fun StintLogo(size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(size).clip(androidx.compose.foundation.shape.RoundedCornerShape(size * 0.28f)).background(Color(0xFF1E1E24))) {
+        val k = this.size.width / 108f
+        val cream = Color(0xFFF4EFE6)
+        listOf(floatArrayOf(33f, 30.5f, 32f, 77f), floatArrayOf(45.5f, 28f, 45f, 79f), floatArrayOf(58f, 30f, 58.5f, 77.5f), floatArrayOf(70.5f, 28.5f, 70f, 79f))
+            .forEach { l -> drawLine(cream, Offset(l[0] * k, l[1] * k), Offset(l[2] * k, l[3] * k), strokeWidth = 7.5f * k, cap = StrokeCap.Round) }
+        val path = androidx.compose.ui.graphics.Path().apply { moveTo(22f * k, 66f * k); cubicTo(42f * k, 58f * k, 62f * k, 47f * k, 86f * k, 36f * k) }
+        drawPath(path, BrandColor, style = Stroke(8.5f * k, cap = StrokeCap.Round))
+    }
+}
+
+/** "Built by" credit shown on setup and in settings. */
+@Composable
+fun BuiltBy(modifier: Modifier = Modifier) {
+    androidx.compose.material3.Text(
+        "Built by Vignesh Kodiswaran",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier,
+    )
 }
 
 /** When the current screen started showing; entrance animations only play shortly after this. */

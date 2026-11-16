@@ -91,6 +91,8 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Ticket shown in the long-press preview (null = closed). */
     var peek by mutableStateOf<Issue?>(null); private set
+    /** Bumped when the open ticket changed in Jira, so the preview reloads. */
+    var peekRefresh by mutableStateOf(0); private set
     private val detailsCache = mutableMapOf<String, io.github.vigneshvicky2.timelog.data.IssueDetails>()
 
     fun openPeek(issue: Issue) { peek = issue }
@@ -183,6 +185,28 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
                 messages.tryEmit(friendly(e))
             } finally {
                 loading = false
+            }
+        }
+    }
+
+    /** Moves a To Do ticket to In Progress in Jira, then reloads so the warning clears. */
+    fun moveToInProgress(issue: Issue) {
+        val a = api ?: return
+        viewModelScope.launch {
+            try {
+                val status = a.startProgress(issue.key)
+                if (status == null) {
+                    messages.tryEmit("${issue.key} has no In Progress step in its workflow")
+                } else {
+                    detailsCache.remove(issue.key)
+                    suggestions = suggestions.map {
+                        if (it.key == issue.key) it.copy(status = status, statusCategory = "indeterminate") else it
+                    }
+                    peekRefresh++
+                    messages.tryEmit("${issue.key} moved to $status")
+                }
+            } catch (e: Exception) {
+                messages.tryEmit(friendly(e))
             }
         }
     }

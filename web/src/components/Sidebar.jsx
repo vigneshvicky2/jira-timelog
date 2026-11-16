@@ -71,6 +71,7 @@ export default function Sidebar() {
         <div><kbd>↑↓←→</kbd> move in the grid · type <kbd>1.5</kbd> or <kbd>45m</kbd> to set time</div>
         <div><kbd>Del</kbd> clear cell · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> log all</div>
       </div>
+      <div className="built-by">Built by Vignesh Kodiswaran</div>
     </ScrollArea>
   )
 }

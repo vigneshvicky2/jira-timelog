@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -144,48 +146,67 @@ private fun Notes(r: Release, current: String) {
     }
 }
 
-/** Shown once after an update: each change pops in one after another. */
+/** Shown once after an update, full screen: the logo springs in, then each change rises into place. */
 @Composable
 private fun WhatsNewDialog(version: String, entries: List<ChangelogEntry>, onDismiss: () -> Unit) {
-    AlertDialog(
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        icon = {
-            var on by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { on = true }
-            val sc by animateFloatAsState(if (on) 1f else 0.3f, spring(0.4f, Spring.StiffnessLow), label = "ic")
-            Box(
-                Modifier.size(56.dp).graphicsLayer { scaleX = sc; scaleY = sc; rotationZ = (1f - sc) * -90f }
-                    .clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-        },
-        title = { Text("What's new in $version") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                var index = 0
-                entries.forEach { e ->
-                    Text(e.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(8.dp))
-                    e.items.forEach { item ->
-                        val i = index++
-                        var shown by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) { delay(140L + i * 90L); shown = true }
-                        val t by animateFloatAsState(if (shown) 1f else 0f, spring(0.6f, Spring.StiffnessMediumLow), label = "it")
-                        Row(
-                            Modifier.padding(bottom = 10.dp).graphicsLayer { alpha = t; translationY = (1f - t) * 28f },
-                            verticalAlignment = Alignment.Top,
-                        ) {
-                            Icon(Icons.Rounded.CheckCircle, null, Modifier.size(18.dp).padding(top = 2.dp),
-                                tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(10.dp))
-                            Text(item, style = MaterialTheme.typography.bodyMedium)
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        val cs = MaterialTheme.colorScheme
+        androidx.compose.material3.Surface(color = cs.surface, modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
+            Column(
+                Modifier.fillMaxHeight().systemBarsPadding().padding(horizontal = 24.dp, vertical = 20.dp)
+            ) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
+                    Spacer(Modifier.height(24.dp))
+                    var on by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { on = true }
+                    val sc by animateFloatAsState(if (on) 1f else 0.3f, spring(0.42f, Spring.StiffnessLow), label = "logo")
+                    io.github.vigneshvicky2.timelog.ui.StintLogo(
+                        88.dp, Modifier.graphicsLayer { scaleX = sc; scaleY = sc; rotationZ = (1f - sc) * -40f }
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Text("UPDATED TO $version", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold,
+                        color = io.github.vigneshvicky2.timelog.ui.BrandColor)
+                    Spacer(Modifier.height(6.dp))
+                    Text("What's new\nin Stint", style = MaterialTheme.typography.displaySmall)
+                    Spacer(Modifier.height(26.dp))
+                    var index = 0
+                    entries.forEach { e ->
+                        if (entries.size > 1) {
+                            Text(e.version + " · " + e.title, style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 10.dp, top = 4.dp))
+                        }
+                        e.items.forEach { item ->
+                            val i = index++
+                            var shown by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) { delay(220L + i * 90L); shown = true }
+                            val t by animateFloatAsState(if (shown) 1f else 0f, spring(0.62f, Spring.StiffnessMediumLow), label = "it")
+                            Row(
+                                Modifier.padding(bottom = 16.dp).graphicsLayer { alpha = t; translationY = (1f - t) * 36f },
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Box(
+                                    Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(cs.primaryContainer),
+                                    contentAlignment = Alignment.Center,
+                                ) { Icon(Icons.Rounded.CheckCircle, null, Modifier.size(18.dp), tint = cs.primary) }
+                                Spacer(Modifier.width(14.dp))
+                                Text(item, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 6.dp))
+                            }
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
                 }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(22.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = cs.onSurface, contentColor = cs.surface),
+                    modifier = Modifier.fillMaxWidth().height(60.dp),
+                ) { Text("Let's go", style = MaterialTheme.typography.titleMedium) }
+                Spacer(Modifier.height(10.dp))
+                io.github.vigneshvicky2.timelog.ui.BuiltBy(Modifier.align(Alignment.CenterHorizontally))
             }
-        },
-        confirmButton = { Button(onClick = onDismiss) { Text("Let's go") } },
-    )
+        }
+    }
 }

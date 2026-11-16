@@ -3,5 +3,5 @@
     <style name="Theme.Timelog" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
     </style>
-    <color name="bg">#141218</color>
+    <color name="bg">#111113</color>
 </resources>

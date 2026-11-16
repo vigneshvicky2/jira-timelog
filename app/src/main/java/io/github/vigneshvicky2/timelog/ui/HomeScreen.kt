@@ -28,6 +28,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,6 +67,8 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material.icons.rounded.ViewWeek
@@ -174,6 +178,8 @@ fun HomeScreen(vm: TimelogViewModel) {
                     item(key = "header") { Header(vm) { showSettings = true } }
                     item(key = "strip") { DateStrip(vm) }
                     item(key = "quick") { QuickActions(vm) }
+                    item(key = "attention") { NeedsAttention(vm) }
+                    item(key = "sprint") { SprintOverview(vm) }
                     when (vm.calendarStatus) {
                         CalendarStatus.NoPermission -> item(key = "cal") {
                             CalendarHint(
@@ -233,75 +239,183 @@ fun HomeScreen(vm: TimelogViewModel) {
 
 @Composable
 private fun Header(vm: TimelogViewModel, onSettings: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
     val days = vm.selected
     val logged = days.sumOf { vm.loggedSeconds(it) }
     val pending = days.sumOf { vm.pendingSeconds(it) }
     val target = TARGET_SECONDS * days.size
     val left = days.sumOf { maxOf(0L, vm.remaining(it)) }
     val over = days.sumOf { maxOf(0L, -vm.remaining(it)) }
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
-    val shade = if (dark) 0.55f else 0f
-    val primary = androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.primary, Color.Black, shade)
-    val tertiary = androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.tertiary, Color.Black, shade)
     val hour = LocalTime.now().hour
     val greeting = when { hour < 12 -> "Good morning"; hour < 17 -> "Good afternoon"; else -> "Good evening" }
     val firstName = vm.displayName.split(" ").firstOrNull().orEmpty()
-    val progress by animateFloatAsState(
-        ((logged + pending).toFloat() / target).coerceIn(0f, 1f), spring(0.7f, Spring.StiffnessVeryLow), label = "hdr"
-    )
+    val single = days.size == 1
+    val dayLabel = if (single) days.first().let { d ->
+        (if (d == vm.today) "Today · " else "") + d.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM"))
+    } else "${days.size} days selected"
 
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
-            .background(Brush.linearGradient(listOf(primary, tertiary)))
-    ) {
-        AnimatedBlobs(alpha = 0.35f)
-        Column(Modifier.statusBarsPadding().padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 26.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f).enter(0)) {
-                    Text("$greeting,", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        firstName.ifBlank { "there" },
-                        color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-                    )
-                }
-                IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Settings", tint = Color.White) }
-            }
-            AnimatedVisibility(vm.sprintName != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                SprintPill(vm.sprintName, vm.suggestions.size, Modifier.padding(top = 10.dp), onGradient = true)
-            }
-            Spacer(Modifier.height(20.dp))
-            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.enter(1)) {
-                RollingText(
-                    durationLabel(logged + pending),
-                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White,
-                )
-                Spacer(Modifier.width(8.dp))
+    Column(Modifier.statusBarsPadding().padding(top = 10.dp)) {
+        Row(Modifier.padding(start = 20.dp, end = 12.dp).enter(0), verticalAlignment = Alignment.CenterVertically) {
+            StintLogo(40.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Stint", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "of ${durationLabel(target)} · ${days.size} ${if (days.size == 1) "day" else "days"}",
-                    color = Color.White.copy(alpha = 0.85f),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    "$greeting${if (firstName.isNotBlank()) ", $firstName" else ""}",
+                    style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(12.dp))
-            Box(
-                Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f))
-            ) {
-                Box(Modifier.fillMaxWidth(progress).height(10.dp).clip(CircleShape).background(Color.White))
+            Surface(onClick = onSettings, shape = RoundedCornerShape(14.dp), color = cs.surfaceContainer, modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Settings, "Settings", tint = cs.onSurfaceVariant) }
             }
-            Spacer(Modifier.height(10.dp))
-            RollingText(
-                when {
-                    over > 0 && left == 0L -> "All done · ${durationLabel(over)} over 8h"
-                    left == 0L -> "All selected days are complete"
-                    else -> "${durationLabel(left)} left to fill" + if (over > 0) " · ${durationLabel(over)} over" else ""
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.92f),
-            )
+        }
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = cs.surfaceContainer,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp).fillMaxWidth().enter(1),
+        ) {
+            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                ProgressRing(logged, pending, 112.dp, stroke = 12.dp, target = target) {
+                    Text(
+                        "${((logged + pending) * 100 / maxOf(1L, target))}%",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text("of ${durationLabel(target)}", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+                }
+                Spacer(Modifier.width(18.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(dayLabel.uppercase(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = cs.primary)
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        RollingText(
+                            when { left > 0 -> durationLabel(left); over > 0 -> "+" + durationLabel(over); else -> "Done" },
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = if (left == 0L && over > 0) OverColor else cs.onSurface,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            when { left > 0 -> "to go"; over > 0 -> "over"; else -> "" },
+                            style = MaterialTheme.typography.titleSmall, color = cs.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Dot(cs.primary); Spacer(Modifier.width(6.dp))
+                            Text("Jira ${durationLabel(logged)}", style = MaterialTheme.typography.labelMedium, color = cs.secondary)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Dot(cs.tertiary); Spacer(Modifier.width(6.dp))
+                            Text("Pending ${durationLabel(pending)}", style = MaterialTheme.typography.labelMedium, color = cs.secondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Sprint tickets that are over their estimate, or have time on them while still To Do. */
+@Composable
+private fun NeedsAttention(vm: TimelogViewModel) {
+    val flagged = vm.suggestions.mapNotNull { i ->
+        val t = i.tracking ?: return@mapNotNull null
+        val over = t.estimate?.takeIf { it > 0 }?.let { t.spent - it }?.takeIf { it > 0 }
+        when {
+            over != null -> Triple(i, true, "is ${durationLabel(over)} over its ${durationLabel(t.estimate!!)} estimate")
+            i.statusCategory == "new" && t.spent > 0 -> Triple(i, false, "has ${durationLabel(t.spent)} logged but is still To Do")
+            else -> null
+        }
+    }
+    AnimatedVisibility(flagged.isNotEmpty(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            flagged.forEachIndexed { idx, (issue, isOver, text) ->
+                val c = if (isOver) OverColor else TodoColor
+                Surface(
+                    onClick = { vm.openPeek(issue) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = c.copy(alpha = 0.13f),
+                    modifier = Modifier.fillMaxWidth().enter(2 + idx),
+                ) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (isOver) Icons.Rounded.WarningAmber else Icons.Rounded.Schedule, null, Modifier.size(18.dp), tint = c)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            androidx.compose.ui.text.buildAnnotatedString {
+                                pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = c)); append(issue.key); pop()
+                                append(" "); append(text)
+                            },
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f),
+                        )
+                        if (!isOver) {
+                            Spacer(Modifier.width(8.dp))
+                            Surface(onClick = { vm.moveToInProgress(issue) }, shape = RoundedCornerShape(10.dp), color = c.copy(alpha = 0.22f)) {
+                                Text("Start it", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = c,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The sprint at a glance: each ticket with time left and a thin bar. Tap for the full preview. */
+@Composable
+private fun SprintOverview(vm: TimelogViewModel) {
+    val list = vm.suggestions.filter { it.tracking != null }
+    if (list.isEmpty()) return
+    val cs = MaterialTheme.colorScheme
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val shown = if (expanded) list else list.take(4)
+    Column(Modifier.padding(top = 22.dp)) {
+        Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.Bottom) {
+            Text(vm.sprintName ?: "Sprint", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f),
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${list.size} tickets", style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(10.dp))
+        Surface(shape = RoundedCornerShape(24.dp), color = cs.surfaceContainer, modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+            Column(Modifier.animateContentSize(spring(0.85f, Spring.StiffnessMediumLow))) {
+                shown.forEachIndexed { idx, i ->
+                    val p = io.github.vigneshvicky2.timelog.data.TicketProgress.of(i.tracking!!, i.statusCategory, vm.pendingFor(i.key), ::durationLabel)
+                    val todo = i.statusCategory == "new"
+                    val c = when { p.over > 0 -> OverColor; todo -> TodoColor; i.statusCategory == "done" -> DoneColor; else -> cs.primary }
+                    val fill by animateFloatAsState(p.fraction, spring(0.7f, Spring.StiffnessVeryLow), label = "f")
+                    Column(
+                        Modifier.fillMaxWidth().clickable { vm.openPeek(i) }.padding(horizontal = 16.dp, vertical = 13.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            KeyChip(i.key)
+                            Spacer(Modifier.width(8.dp))
+                            Text(i.summary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                when {
+                                    p.over > 0 -> "${durationLabel(p.over)} over"
+                                    p.remaining != null -> (if (todo) "To Do · " else "") + "${durationLabel(p.remaining)} left"
+                                    else -> i.status.ifBlank { "No estimate" }
+                                },
+                                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                                color = if (p.over > 0 || todo) c else cs.secondary, maxLines = 1,
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(cs.surfaceContainerHighest)) {
+                            Box(Modifier.fillMaxWidth(fill).height(4.dp).clip(CircleShape).background(c))
+                        }
+                    }
+                    if (idx < shown.lastIndex) androidx.compose.material3.HorizontalDivider(color = cs.outlineVariant)
+                }
+                if (list.size > 4) {
+                    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (expanded) "Show less" else "Show all ${list.size}")
+                    }
+                }
+            }
         }
     }
 }
@@ -544,7 +658,7 @@ private fun DayCard(
                     Spacer(Modifier.height(18.dp))
                     SectionLabel("Ready to log · swipe to remove")
                     dayDrafts.forEach { d ->
-                        key(d.id) { DraftRow(d, onClick = { onEditDraft(d) }, onRemove = { vm.removeDraft(d.id) }, onPeek = { vm.openPeek(d.issue) }) }
+                        key(d.id) { DraftRow(d, flag = draftFlag(vm, d.issue.key), onClick = { onEditDraft(d) }, onRemove = { vm.removeDraft(d.id) }, onPeek = { vm.openPeek(d.issue) }) }
                     }
                 }
             }
@@ -672,7 +786,7 @@ private fun MeetingCard(m: Meeting, added: Boolean, rememberedKey: String?, modi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DraftRow(d: Draft, onClick: () -> Unit, onRemove: () -> Unit, onPeek: () -> Unit) {
+private fun DraftRow(d: Draft, flag: Pair<String, Color>?, onClick: () -> Unit, onRemove: () -> Unit, onPeek: () -> Unit) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = {
         if (it != SwipeToDismissBoxValue.Settled) { onRemove(); true } else false
     })
@@ -704,11 +818,20 @@ private fun DraftRow(d: Draft, onClick: () -> Unit, onRemove: () -> Unit, onPeek
                     },
                 ),
         ) {
-            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.height(IntrinsicSize.Min).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(4.dp).fillMaxHeight().clip(CircleShape).background(flag?.second ?: cs.primary))
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         KeyChip(d.issue.key)
                         Spacer(Modifier.width(8.dp))
+                        if (flag != null) {
+                            Surface(color = flag.second.copy(alpha = 0.16f), contentColor = flag.second, shape = RoundedCornerShape(8.dp)) {
+                                Text(flag.first, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                        }
                         Text(d.start.label(), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
                     }
                     Spacer(Modifier.height(4.dp))
@@ -751,6 +874,19 @@ private fun LoggedRow(w: Worklog, modifier: Modifier = Modifier, onDelete: () ->
     }
 }
 
+/** "OVER ESTIMATE" / "TO DO" tag for a pending entry, from the sprint ticket's tracking. */
+private fun draftFlag(vm: TimelogViewModel, key: String): Pair<String, Color>? {
+    val i = vm.suggestions.firstOrNull { it.key == key } ?: return null
+    val t = i.tracking ?: return null
+    val est = t.estimate?.takeIf { it > 0 }
+    return when {
+        est != null && t.spent + vm.pendingFor(key) > est -> "OVER ESTIMATE" to OverColor
+        i.statusCategory == "new" -> "TO DO" to TodoColor
+        i.statusCategory == "done" -> "DONE" to DoneColor
+        else -> null
+    }
+}
+
 // ------------------------------------------------------------------ submit bar
 
 @Composable
@@ -786,9 +922,14 @@ private fun SubmitBar(vm: TimelogViewModel) {
                             if (vm.submitting) "Logging…" else "$count ${if (count == 1) "entry" else "entries"} ready",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         )
+                        val flagged = vm.drafts.map { it.issue.key }.distinct().count { draftFlag(vm, it)?.second.let { c -> c == OverColor || c == TodoColor } }
                         Text(
                             "${durationLabel(total)} across $dayCount ${if (dayCount == 1) "day" else "days"}",
                             style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (flagged > 0) Text(
+                            "$flagged ${if (flagged == 1) "ticket needs" else "tickets need"} a look",
+                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = OverColor,
                         )
                     }
                     Button(
@@ -913,6 +1054,8 @@ private fun SettingsDialog(vm: TimelogViewModel, onDismiss: () -> Unit) {
                     }
                     TextButton(onClick = { onDismiss(); uvm.check() }) { Text("Check") }
                 }
+                Spacer(Modifier.height(14.dp))
+                BuiltBy()
 
                 if (confirm) {
                     Spacer(Modifier.height(8.dp))

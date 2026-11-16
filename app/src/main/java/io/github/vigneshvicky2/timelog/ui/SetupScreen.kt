@@ -211,6 +211,8 @@ fun SetupScreen(vm: TimelogViewModel) {
                 Spacer(Modifier.size(6.dp))
                 Text("Create an API key")
             }
+            Spacer(Modifier.height(16.dp))
+            BuiltBy(Modifier.enter(7))
         }
     }
 }

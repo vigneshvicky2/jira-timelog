@@ -59,3 +59,7 @@ Requirements: JDK 17+ and the Android SDK (compileSdk 36).
 Release builds are signed with the key described by the properties file at `$TIMELOG_SIGNING` (default `~/.android-keys/timelog.properties`, containing `storeFile`, `storePassword`, `keyAlias` and `keyPassword`). Without one, the local debug key is used. In-app updates only install over the previous version when every release is signed with the same key, so back the key up.
 
 Tech: Kotlin, Jetpack Compose, Material 3 (dynamic color), Jira Cloud REST API v3, Android CalendarContract, AlarmManager. Minimum Android 12.
+
+---
+
+Built by Vignesh Kodiswaran.

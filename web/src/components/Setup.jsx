@@ -88,6 +88,7 @@ export default function Setup() {
         <motion.p {...item(6)} className="fine">
           Your key is stored only in this browser and sent straight to your Jira site through Stint's relay. Nothing is saved on a server.
         </motion.p>
+        <motion.p {...item(7)} className="built-by">Built by Vignesh Kodiswaran</motion.p>
       </motion.form>
     </motion.div>
   )
