@@ -5,6 +5,12 @@ data class ChangelogEntry(val version: String, val title: String, val items: Lis
 
 val CHANGELOG = listOf(
     ChangelogEntry(
+        "1.5.2", "Right sprint count",
+        listOf(
+            "Sprint days left no longer counts the morning the next sprint starts, so a 2-week sprint shows 10 days, not 11.",
+        ),
+    ),
+    ChangelogEntry(
         "1.5.1", "Sprint countdown",
         listOf(
             "Home shows your sprint with the workdays left and how far through it you are.",

@@ -3,14 +3,19 @@
 const dayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const isWorkday = (d) => d.getDay() !== 0 && d.getDay() !== 6
 
-/** Monday-Friday days left in the sprint, counting today; null without an end date. */
+/**
+ * Monday-Friday days left in the sprint, counting today; null without an end date.
+ * Sprints usually end on the morning the next one starts (Wed -> Wed), so the end day only
+ * counts when the sprint ends in the afternoon; a 2-week sprint is 10 workdays, not 11.
+ */
 export function workdaysLeft(sprint, now = new Date()) {
   if (!sprint?.end) return null
-  const end = dayStart(sprint.end)
+  const endAt = new Date(sprint.end)
+  const last = dayStart(endAt)
+  if (endAt.getHours() < 12) last.setDate(last.getDate() - 1)
   let d = dayStart(now)
-  if (end < d) return 0
   let n = 0
-  while (d <= end) { if (isWorkday(d)) n++; d.setDate(d.getDate() + 1) }
+  while (d <= last) { if (isWorkday(d)) n++; d.setDate(d.getDate() + 1) }
   return n
 }
 

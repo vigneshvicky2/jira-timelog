@@ -697,13 +697,17 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
         store.seenSprint = name
     }
 
-    /** Working days (Mon-Fri) left in the sprint, counting today; null without an end date. */
+    /**
+     * Working days (Mon-Fri) left in the sprint, counting today; null without an end date.
+     * Sprints usually end on the morning the next one starts (Wed -> Wed), so the end day only
+     * counts when the sprint ends in the afternoon; a 2-week sprint is 10 workdays, not 11.
+     */
     fun sprintWorkdaysLeft(): Int? {
-        val end = sprint?.end?.atZone(zone)?.toLocalDate() ?: return null
-        if (end < today) return 0
+        val endAt = sprint?.end?.atZone(zone) ?: return null
+        val lastDay = if (endAt.hour >= 12) endAt.toLocalDate() else endAt.toLocalDate().minusDays(1)
         var n = 0
         var d = today
-        while (d <= end) { if (isWorkday(d)) n++; d = d.plusDays(1) }
+        while (d <= lastDay) { if (isWorkday(d)) n++; d = d.plusDays(1) }
         return n
     }
 
