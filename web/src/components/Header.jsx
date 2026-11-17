@@ -2,7 +2,7 @@ import { motion } from 'motion/react'
 import { TARGET, fmt } from '../lib/time.js'
 import { useShallow } from 'zustand/react/shallow'
 import { DEMO, loggedOn, pendingOn, useStore } from '../store.js'
-import { Icon, Roll } from './ui.jsx'
+import { Count, Icon } from './ui.jsx'
 
 export default function Header({ onSettings, onToggleReview, reviewCount }) {
   const me = useStore((s) => s.me)
@@ -26,8 +26,8 @@ export default function Header({ onSettings, onToggleReview, reviewCount }) {
       <div className="brand">
         <img src="/favicon.svg" alt="" />
         <div>
-          <div className="brand-name">Stint{DEMO && <span className="demo-tag">Demo</span>}</div>
-          <div className="muted small">{greeting}{first ? `, ${first}` : ''}</div>
+          <div className="brand-name">Stint{DEMO && <span className="demo-tag" title="Sample data, nothing is sent to Jira">Demo</span>}</div>
+          <div className="muted small greeting">{greeting}{first ? `, ${first}` : ''}</div>
         </div>
       </div>
 
@@ -41,27 +41,30 @@ export default function Header({ onSettings, onToggleReview, reviewCount }) {
 
       <div className="top-progress">
         <div className="top-progress-text">
-          <Roll className="strong">{fmt(totals.total)}</Roll>
+          <Count className="strong" value={totals.total} />
           <span className="muted"> of {fmt(totals.target)} · {totals.days} day{totals.days === 1 ? '' : 's'}</span>
         </div>
-        <div className="bar">
+        <div className="bar" role="progressbar" aria-label="Logged on the selected days" aria-valuemin={0} aria-valuemax={totals.target} aria-valuenow={totals.total}
+          aria-valuetext={`${fmt(totals.total)} of ${fmt(totals.target)}`}>
           <motion.div className="bar-fill" animate={{ width: `${pct * 100}%` }} transition={{ type: 'spring', stiffness: 90, damping: 20 }} />
         </div>
       </div>
 
       <div className="top-actions">
-        <motion.button className={'icon-btn' + (loading ? ' spinning' : '')} title="Refresh (R)" whileTap={{ scale: 0.9 }}
+        <motion.button className={'icon-btn' + (loading ? ' spinning' : '')} title="Refresh (R)" aria-label="Refresh" whileTap={{ scale: 0.9 }}
           onClick={() => { refresh(); loadCalendar() }}>
           <Icon name="refresh" />
         </motion.button>
-        <motion.button className="icon-btn review-toggle" title="Review" whileTap={{ scale: 0.9 }} onClick={onToggleReview}>
+        <motion.button className="icon-btn review-toggle" title="Review" aria-label={`Review ${reviewCount} pending entries`} whileTap={{ scale: 0.9 }} onClick={onToggleReview}>
           <Icon name="panel" />
           {reviewCount > 0 && <span className="badge">{reviewCount}</span>}
         </motion.button>
-        <motion.button className="icon-btn" title="Settings" whileTap={{ scale: 0.9 }} onClick={onSettings}>
+        <motion.button className="icon-btn" title="Settings" aria-label="Settings" whileTap={{ scale: 0.9 }} onClick={onSettings}>
           <Icon name="sliders" />
         </motion.button>
-        <div className="avatar" title={me?.displayName}>{(first || '?').slice(0, 1).toUpperCase()}</div>
+        <button className="avatar" title={me?.displayName ? `${me.displayName} · Settings` : 'Settings'} aria-label="Account settings" onClick={onSettings}>
+          {(first || '?').slice(0, 1).toUpperCase()}
+        </button>
       </div>
     </header>
   )

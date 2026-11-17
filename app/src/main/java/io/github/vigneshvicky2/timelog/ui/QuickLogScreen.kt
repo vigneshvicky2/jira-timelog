@@ -62,6 +62,8 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -344,7 +346,27 @@ private fun DayPage(
 
         val searchingNow = search.query.isNotBlank()
         val sprintShown = if (searchingNow) vm.search(search.query) else vm.suggestions
-        val extras = vm.extraTickets(day).filter { e -> search.remote.none { it.key == e.key } }
+        val sprintKeys = vm.suggestions.map { it.key }.toSet()
+        val pinnedShown = vm.pinned.filter { it.key !in sprintKeys && search.remote.none { r -> r.key == it.key } }
+        val extras = vm.extraTickets(day).filter { e -> search.remote.none { it.key == e.key } && pinnedShown.none { it.key == e.key } }
+
+        if (pinnedShown.isNotEmpty()) {
+            item(key = "ph") { SectionHeader("Pinned", "Your go-to tickets outside the sprint", Icons.Rounded.PushPin) }
+            itemsIndexed(pinnedShown, key = { _, it -> "p-" + it.key }) { i, issue ->
+                TicketCard(
+                    issue = issue,
+                    seconds = vm.ticketSeconds(day, issue.key),
+                    comment = vm.ticketComment(day, issue.key),
+                    free = remaining,
+                    onSet = { vm.setTicketTime(day, issue, it) },
+                    onComment = { vm.setTicketComment(day, issue.key, it) },
+                    onPeek = { vm.openPeek(issue) },
+                    modifier = Modifier.animateItem().enter(i),
+                    pinned = true,
+                    onPin = { vm.togglePin(issue) },
+                )
+            }
+        }
 
         item(key = "th") { SectionHeader("Sprint tickets", (vm.sprintName ?: "Current sprint") + " · long-press a ticket for details", Icons.Rounded.DirectionsRun) }
         if (searchingNow && sprintShown.isEmpty()) {
@@ -391,6 +413,8 @@ private fun DayPage(
                     onComment = { vm.setTicketComment(day, issue.key, it) },
                     onPeek = { vm.openPeek(issue) },
                     modifier = Modifier.animateItem().enter(i, always = true),
+                    pinned = vm.isPinned(issue.key),
+                    onPin = { vm.togglePin(issue) },
                 )
             }
         }
@@ -420,6 +444,8 @@ private fun DayPage(
                     onComment = { vm.setTicketComment(day, issue.key, it) },
                     onPeek = { vm.openPeek(issue) },
                     modifier = Modifier.animateItem().enter(i, always = true),
+                    pinned = vm.isPinned(issue.key),
+                    onPin = { vm.togglePin(issue) },
                 )
             }
         }
@@ -679,6 +705,9 @@ private fun TicketCard(
     onPeek: () -> Unit,
     modifier: Modifier = Modifier,
     pending: Long = 0,
+    /** Non-null for tickets outside the sprint: whether it's pinned, with a toggle. */
+    pinned: Boolean? = null,
+    onPin: () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
     val active = seconds > 0
@@ -702,7 +731,12 @@ private fun TicketCard(
         }
         last = seconds
     }
-    fun set(v: Long) { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSet(maxOf(0L, v)) }
+    fun set(v: Long) {
+        // A firmer tap when this fills the day; a light tick otherwise.
+        val fills = free > 0 && v - seconds >= free
+        haptics.performHapticFeedback(if (fills) HapticFeedbackType.Confirm else HapticFeedbackType.SegmentTick)
+        onSet(maxOf(0L, v))
+    }
 
     Surface(
         shape = RoundedCornerShape(26.dp),
@@ -728,7 +762,19 @@ private fun TicketCard(
         Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    KeyChip(issue.key)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        KeyChip(issue.key)
+                        if (pinned != null) {
+                            IconButton(onClick = onPin, modifier = Modifier.size(32.dp)) {
+                                Icon(
+                                    if (pinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
+                                    if (pinned) "Unpin ${issue.key}" else "Pin ${issue.key}",
+                                    tint = if (pinned) BrandColor else cs.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(issue.summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)

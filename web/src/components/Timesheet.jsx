@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TARGET, fmt, fmtTime, fromIso, isWeekend, parseDuration, relativeLabel } from '../lib/time.js'
-import { isLeaveDay, loggedOn, pendingOn, remainingOn, useStore } from '../store.js'
+import { useShallow } from 'zustand/react/shallow'
+import { isLeaveDay, lastWorkdayPlan, loggedOn, pendingOn, remainingOn, useStore } from '../store.js'
 import { progressOf } from '../lib/progress.js'
 import ScrollArea from './ScrollArea.jsx'
-import { Icon, KeyChip, Popover, Ring, Roll, Spinner } from './ui.jsx'
+import { Count, Icon, KeyChip, Popover, Ring, Roll, Spinner } from './ui.jsx'
 
 const PRESETS = [15, 30, 45, 60, 90, 120, 180, 240]
 const ease = [0.2, 0.8, 0.2, 1]
@@ -64,8 +65,12 @@ export default function Timesheet({ onOpenSettings }) {
   const flat = useMemo(() => sections.flatMap((s) => s.rows.map((r) => ({ ...r, leave: !!s.leave }))), [sections])
   const rowIndex = useMemo(() => Object.fromEntries(flat.map((r, i) => [r.key, i])), [flat])
 
-  const cols = `minmax(210px, 250px) repeat(${days.length}, minmax(156px, 1fr))`
-  const minWidth = 220 + days.length * 158
+  // desktop: a roomy ticket column and day columns capped so one selected day isn't a huge empty strip
+  const cols = `minmax(290px, 1fr) repeat(${days.length}, minmax(150px, 230px))`
+  const minWidth = 292 + days.length * 150
+  // phone: ticket rows become full-width cards; day cells sit under them and scroll sideways inside the grid
+  const colsM = `repeat(${days.length}, minmax(124px, 1fr))`
+  const minWidthM = days.length * 124
 
   const focusCell = useCallback((r, c) => {
     const el = sheetRef.current?.querySelector(`[data-cell][data-r="${r}"][data-c="${c}"]`)
@@ -110,7 +115,7 @@ export default function Timesheet({ onOpenSettings }) {
 
   return (
     <ScrollArea hostClassName="sheet-host" className="sheet-wrap" innerRef={sheetRef} onKeyDown={onKeyDown}>
-      <div className="sheet" style={{ '--cols': cols, minWidth }}>
+      <div className={'sheet' + (days.length > 1 ? ' multi' : '')} style={{ '--cols': cols, '--minw': `${minWidth}px`, '--cols-m': colsM, '--minw-m': `${minWidthM}px` }}>
         {/* day headers */}
         <div className="row head">
           <div className="rowhead corner">
@@ -177,7 +182,7 @@ export default function Timesheet({ onOpenSettings }) {
                         <Icon name="info" size={14} className="rh-info" />
                         {rowTotal > 0 && <Roll className="rh-total">{fmt(rowTotal)}</Roll>}
                         {row.pinned && (
-                          <button className="icon-btn tiny rh-unpin" title="Remove row" onClick={() => unpin(row.key)}>
+                          <button className="icon-btn tiny rh-unpin" title="Remove row" aria-label={`Remove ${row.key} row`} onClick={() => unpin(row.key)}>
                             <Icon name="close" size={14} />
                           </button>
                         )}
@@ -186,7 +191,7 @@ export default function Timesheet({ onOpenSettings }) {
                       {!sec.leave && <RowProgress row={row} pending={drafts.reduce((a, x) => (x.issue.key === row.key ? a + x.seconds : a), 0)} />}
                     </div>
                     {days.map((d, c) => (
-                      <Cell key={d} r={r} c={c} date={d} leave={sec.leave}
+                      <Cell key={d} r={r} c={c} date={d} leave={sec.leave} rowKey={row.key}
                         draft={index.pending[d + '|' + row.key]}
                         logged={index.logged[d + '|' + row.key] || 0}
                         meeting={index.meet[d + '|' + row.key] || 0}
@@ -239,17 +244,15 @@ function DayHeader({ d, onMenu }) {
           <div className="dh-rel">{relativeLabel(d, today)}{leave && <span className="dh-tag"><Icon name="beach" size={12} /> Leave</span>}</div>
           <div className="dh-date">{date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</div>
         </div>
-        <motion.button className="icon-btn tiny" whileTap={{ scale: 0.88 }} title="Day actions"
-          onClick={(e) => onMenu(e.currentTarget.getBoundingClientRect())}>
+        <motion.button className="icon-btn tiny dh-menu" whileTap={{ scale: 0.88 }} title="Day actions" aria-label={`Actions for ${date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`}
+          aria-haspopup="menu" onClick={(e) => onMenu(e.currentTarget.getBoundingClientRect())}>
           <Icon name="more" size={18} />
         </motion.button>
       </div>
       <div className="dh-body">
         <Ring logged={logged} pending={pending} size={40} stroke={5} />
         <div className="dh-stats">
-          <Roll className={'dh-rem ' + (rem < 0 ? 'over' : rem === 0 ? 'done' : '')}>
-            {rem > 0 ? `${fmt(rem)} left` : rem === 0 ? '8h done ✓' : `+${fmt(-rem)} over`}
-          </Roll>
+          <Count className={'dh-rem ' + (rem < 0 ? 'over' : rem === 0 ? 'done' : '')} value={rem} format={remLabel} />
           <div className="dh-split" title={`In Jira ${fmt(logged)} · New ${fmt(pending)}`}>
             {fmt(logged + pending)} of 8h{pending > 0 ? ` · +${fmt(pending)} new` : ''}
           </div>
@@ -258,6 +261,8 @@ function DayHeader({ d, onMenu }) {
     </motion.div>
   )
 }
+
+const remLabel = (r) => (r > 0 ? `${fmt(r)} left` : r === 0 ? '8h done ✓' : `+${fmt(-r)} over`)
 
 function DayFoot({ d }) {
   const logged = useStore((s) => loggedOn(s, d))
@@ -268,10 +273,11 @@ function DayFoot({ d }) {
   return (
     <div className="dayfoot">
       <div className="df-text">
-        <Roll className={'strong ' + (over ? 'over' : total === TARGET ? 'done' : '')}>{fmt(total)}</Roll>
-        <span className="muted"> / 8h</span>
+        <Count className={'strong ' + (over ? 'over' : total === TARGET ? 'done' : '')} value={total} />
+        <span className="muted"> / 8h{over ? ' · over' : ''}</span>
       </div>
-      <div className="bar thin">
+      <div className="bar thin" role="progressbar" aria-label="Day total" aria-valuemin={0} aria-valuemax={TARGET} aria-valuenow={Math.min(total, TARGET)}
+        aria-valuetext={`${fmt(total)} of 8h${over ? `, ${fmt(total - TARGET)} over` : ''}`}>
         <motion.div className="bar-fill pending" animate={{ width: `${Math.min(1, total / TARGET) * 100}%` }} transition={spring}
           style={over ? { background: 'var(--over-soft)' } : undefined} />
         <motion.div className="bar-fill" animate={{ width: `${Math.min(1, logged / TARGET) * 100}%` }} transition={spring}
@@ -283,11 +289,13 @@ function DayFoot({ d }) {
 
 // ------------------------------------------------------------------ cells
 
-function Cell({ r, c, date, leave, draft, logged, meeting, active, onOpen }) {
+function Cell({ r, c, date, leave, rowKey, draft, logged, meeting, active, onOpen }) {
   const has = !!draft
+  const day = fromIso(date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+  const label = `${rowKey}, ${day}: ${has ? `${fmt(draft.seconds)} pending` : 'no new time, add time'}${logged ? `, ${fmt(logged)} already in Jira` : ''}${draft?.error ? `, failed: ${draft.error}` : ''}`
   return (
     <motion.button
-      data-cell="" data-r={r} data-c={c} data-date={date}
+      data-cell="" data-r={r} data-c={c} data-date={date} aria-label={label}
       className={'cell' + (has ? ' has' : '') + (draft?.error ? ' err' : '') + (leave ? ' leave' : '') + (active ? ' active' : '') + (isWeekend(date) ? ' weekend' : '')}
       onClick={(e) => onOpen(e.currentTarget)}
       whileTap={{ scale: 0.97 }}
@@ -298,7 +306,7 @@ function Cell({ r, c, date, leave, draft, logged, meeting, active, onOpen }) {
           <Roll className="cell-val">{fmt(draft.seconds)}</Roll>
         </span>
       )}
-      {!has && <span className="cell-add"><Icon name="plus" size={15} /></span>}
+      {!has && <span className="cell-add" aria-hidden="true"><Icon name="plus" size={14} /><span className="cell-add-text">Add time</span></span>}
       {(logged > 0 || meeting > 0 || draft?.comment) && (
         <span className="cell-sub">
           {logged > 0 && <span className="tag jira">Jira {fmt(logged)}</span>}
@@ -452,6 +460,7 @@ function MeetingEditor({ ed, onClose }) {
   const last = memory[m.title.toLowerCase().trim().replace(/\s+/g, ' ')] || null
 
   const [issue, setIssue] = useState(existing?.issue ?? null)
+  const [always, setAlways] = useState(!!last?.always)
   const [secs, setSecs] = useState(existing?.seconds ?? m.minutes * 60)
   const [text, setText] = useState(fmt(existing?.seconds ?? m.minutes * 60))
   const [comment, setComment] = useState(existing?.comment ?? m.title)
@@ -527,12 +536,26 @@ function MeetingEditor({ ed, onClose }) {
       </div>
       <textarea className="note" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Description (optional)" />
 
+      <AnimatePresence initial={false}>
+        {issue && (
+          <motion.label className="always-row" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            <span>
+              <span className="strong">Always log to {issue.key}</span>
+              <span className="muted tiny">Adds “{m.title}” as a draft automatically on future days</span>
+            </span>
+            <button type="button" role="switch" aria-checked={always} className={'switch' + (always ? ' on' : '')} onClick={() => setAlways((v) => !v)}>
+              <motion.span className="knob" layout transition={{ type: 'spring', stiffness: 700, damping: 35 }} />
+            </button>
+          </motion.label>
+        )}
+      </AnimatePresence>
+
       <div className="pop-foot">
         {existing && (
           <button className="ghost-btn danger" onClick={() => { removeMeeting(m); onClose() }}><Icon name="trash" size={15} /> Remove</button>
         )}
         <motion.button className="btn primary" style={{ marginLeft: 'auto' }} disabled={!issue || !secs} whileTap={{ scale: 0.96 }}
-          onClick={() => { setMeeting(m, issue, secs, comment); onClose() }}>
+          onClick={() => { setMeeting(m, issue, secs, comment, always); onClose() }}>
           {existing ? 'Update' : issue ? `Add to ${issue.key}` : 'Pick a ticket'}
         </motion.button>
       </div>
@@ -549,10 +572,39 @@ function DayMenu({ d, rect, onClose }) {
   const setLeave = useStore((s) => s.setLeave)
   const copyDay = useStore((s) => s.copyDayToSelected)
   const clickDay = useStore((s) => s.clickDay)
+  const copyLastWorkday = useStore((s) => s.copyLastWorkday)
+  const fillRest = useStore((s) => s.fillRest)
+  const remaining = useStore((s) => remainingOn(s, d))
+  const plan = useStore(useShallow((s) => {
+    const p = lastWorkdayPlan(s, d)
+    return p ? { from: p.from, n: p.items.length, secs: p.items.reduce((a, e) => a + e.seconds, 0) } : { from: null }
+  }))
   const others = selected.length - 1
   const act = (fn) => () => { fn(); onClose() }
+  const fromLabel = plan.from && fromIso(plan.from).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
   return (
-    <Popover anchor={rect} onClose={onClose} width={280} className="menu">
+    <Popover anchor={rect} onClose={onClose} width={300} className="menu">
+      <div className="menu-label">Quick fill</div>
+      <button className="menu-item" disabled={plan.from && !plan.n} onClick={act(() => copyLastWorkday([d]))}>
+        <Icon name="copy" size={16} />
+        <span className="mi-text">
+          Copy last workday
+          <span className="mi-sub">{plan.from ? (plan.n ? `${fromLabel} · ${plan.n} ticket${plan.n === 1 ? '' : 's'} · ${fmt(plan.secs)}` : `Nothing new from ${fromLabel}`) : 'Repeat your previous day'}</span>
+        </span>
+      </button>
+      {others > 0 && (
+        <button className="menu-item" onClick={act(() => copyLastWorkday(selected))}>
+          <Icon name="copy" size={16} /><span className="mi-text">Copy last workday on all {selected.length} days</span>
+        </button>
+      )}
+      <button className="menu-item" disabled={remaining <= 0} onClick={act(() => fillRest(d))}>
+        <Icon name="wand" size={16} />
+        <span className="mi-text">
+          Fill the rest
+          <span className="mi-sub">{remaining > 0 ? `Split ${fmt(remaining)} across in-progress tickets` : 'This day already has 8h'}</span>
+        </span>
+      </button>
+      {(timeOff || others > 0) && <div className="menu-sep" />}
       {timeOff && (
         <>
           <button className="menu-item" onClick={act(() => setLeave([d], 8 * 3600, ''))}><Icon name="beach" size={16} /> Full-day leave</button>
@@ -560,7 +612,7 @@ function DayMenu({ d, rect, onClose }) {
           {others > 0 && (
             <button className="menu-item" onClick={act(() => setLeave(selected, 8 * 3600, ''))}><Icon name="beach" size={16} /> Full-day leave on all {selected.length} days</button>
           )}
-          <div className="menu-sep" />
+          {others > 0 && <div className="menu-sep" />}
         </>
       )}
       {others > 0 && (
@@ -571,7 +623,7 @@ function DayMenu({ d, rect, onClose }) {
       {others > 0 && (
         <button className="menu-item" onClick={act(() => clickDay(d))}><Icon name="close" size={16} /> Hide this day</button>
       )}
-      {!others && !timeOff && <div className="muted small pad">Select more days to copy entries across them.</div>}
+
     </Popover>
   )
 }
@@ -674,15 +726,22 @@ function RowProgress({ row, pending }) {
     p.over > 0 ? `Over by ${fmt(p.over)}` : p.remaining != null ? `${fmt(p.remaining)} remaining` : 'No estimate',
     ...p.warnings.filter((w) => w.kind !== 'info').map((w) => w.text),
   ].join('\n')
+  const warn = tone === 'over' ? 'Over estimate' : tone === 'todo' ? 'Still To Do' : null
   return (
     <div className={'rh-prog ' + tone} title={title}>
       <div className="rh-prog-line">
         <span className={'status-pill mini ' + (info.statusCategory || '')}>{info.status || '—'}</span>
+        {warn && (
+          <span className="rh-warn" title={p.warnings.filter((w) => w.kind !== 'info').map((w) => w.text).join('\n')}>
+            <Icon name="alert" size={12} /><span className="sr-only">{warn}: </span>
+          </span>
+        )}
         <span className="rh-left">{left}</span>
         {p.estimate ? <span className="rh-of">{fmt(p.spent)}/{fmt(p.estimate)}</span> : p.spent > 0 ? <span className="rh-of">{fmt(p.spent)} logged</span> : null}
       </div>
       {p.total ? (
-        <div className="rh-bar">
+        <div className="rh-bar" role="img"
+          aria-label={`${fmt(p.spent)} logged${p.estimate ? ` of ${fmt(p.estimate)} estimate` : ''}${pending ? `, ${fmt(pending)} pending` : ''}${warn ? `. ${warn}` : ''}`}>
           <span className="rh-fill" style={{ width: `${p.pct * 100}%` }} />
           {p.pendingPct > 0 && <span className="rh-pend" style={{ width: `${p.pendingPct * 100}%` }} />}
         </div>

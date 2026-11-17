@@ -258,6 +258,9 @@ class JiraApi(private val site: String, email: String, token: String) {
     private fun errorMessage(code: Int, text: String): String {
         if (code == 401) return "That API key didn't work. Check it and try again."
         if (code == 403) return "Jira says you don't have permission for this."
+        if (code == 404) return "That ticket no longer exists, or you can't see it."
+        if (code == 429) return "Jira is busy. Wait a moment and retry."
+        if (code >= 500) return "Jira had a problem ($code). Retry in a moment."
         val parsed = runCatching {
             val o = JSONObject(text)
             val msgs = mutableListOf<String>()

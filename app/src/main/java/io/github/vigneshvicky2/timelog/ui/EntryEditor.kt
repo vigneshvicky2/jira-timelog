@@ -100,6 +100,7 @@ fun EntryEditor(vm: TimelogViewModel, req: EditorRequest, onDismiss: () -> Unit)
     var start by remember { mutableStateOf(editing?.start ?: meeting?.start ?: LocalTime.of(10, 0)) }
     var comment by remember { mutableStateOf(editing?.comment ?: meeting?.title ?: "") }
     var rememberIt by remember { mutableStateOf(true) }
+    var autoIt by remember { mutableStateOf(meeting?.let { vm.isAutoMeeting(it) } ?: false) }
     var picking by remember { mutableStateOf(issue == null || (meeting != null && editing == null)) }
     var showTime by remember { mutableStateOf(false) }
     var showCustom by remember { mutableStateOf(false) }
@@ -117,7 +118,8 @@ fun EntryEditor(vm: TimelogViewModel, req: EditorRequest, onDismiss: () -> Unit)
             else vm.removeDraft(editing.id)
         } else {
             vm.addDrafts(days, i, { d -> if (fill) maxOf(free(d), 0L) else minutes * 60L }, start, comment, meeting?.key)
-            if (meeting != null && rememberIt) vm.rememberMeeting(meeting.title, i)
+            if (meeting != null && (rememberIt || autoIt)) vm.rememberMeeting(meeting.title, i)
+            if (meeting != null) vm.setAutoMeeting(meeting, autoIt)
         }
         close()
     }
@@ -264,10 +266,20 @@ fun EntryEditor(vm: TimelogViewModel, req: EditorRequest, onDismiss: () -> Unit)
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Always log “${meeting.title}” to this ticket",
+                        "Remember this ticket for “${meeting.title}”",
                         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
                     )
-                    Switch(rememberIt, { rememberIt = it })
+                    Switch(rememberIt || autoIt, { rememberIt = it; if (!it) autoIt = false })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Add it automatically every time", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Future “${meeting.title}” meetings are added for review. Nothing is sent until Log all.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(autoIt, { autoIt = it })
                 }
             }
 

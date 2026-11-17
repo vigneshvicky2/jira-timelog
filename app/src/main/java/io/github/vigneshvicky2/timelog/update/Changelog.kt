@@ -5,6 +5,20 @@ data class ChangelogEntry(val version: String, val title: String, val items: Lis
 
 val CHANGELOG = listOf(
     ChangelogEntry(
+        "1.5.0", "Faster, safer, smarter",
+        listOf(
+            "Opens instantly with your last data, then refreshes in the background.",
+            "Pending entries are saved on your phone, so closing Stint never loses them.",
+            "Deleting a Jira worklog can be undone for 5 seconds.",
+            "Failed entries say what went wrong and have a Retry button.",
+            "Repeat your last workday or fill the rest of a day across in-progress tickets in one tap.",
+            "Meetings can be added automatically every time, and you can pin tickets outside the sprint.",
+            "New home-screen widget and a Log time shortcut (long-press the app icon).",
+            "The daily reminder has Log time and Snooze buttons.",
+            "Gentle vibrations when you add time, fill a day, or something fails.",
+        ),
+    ),
+    ChangelogEntry(
         "1.4.0", "A proper hello",
         listOf(
             "New launch animation: the tally logo draws itself, the slash swipes in, and Stint says hello.",

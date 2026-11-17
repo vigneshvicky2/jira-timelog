@@ -1,3 +1,4 @@
+import { JiraError, NOT_FOUND, OFFLINE } from './jira.js'
 import { addDays, isWeekend, todayIso } from './time.js'
 
 // Fake data for ?demo, so the UI can be explored and screenshotted without a Jira account.
@@ -22,10 +23,28 @@ const OTHER = [
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// ?demo&flaky makes every other new entry fail once (and "Move to In Progress" fail), to show errors, Retry and rollback.
+const FLAKY = new URLSearchParams(location.search).has('flaky')
+const FAILS = [
+  () => new JiraError(0, OFFLINE),
+  () => new JiraError(404, NOT_FOUND),
+  () => new JiraError(400, 'Worklog must not be logged on a ticket in a closed sprint.'),
+]
+
 export function createDemoJira() {
   const today = todayIso()
   let nextId = 1000
   const logs = []
+  const tried = new Set()
+  // keep the sample tickets' "time left" honest as entries are logged or deleted
+  const track = (key, secs) => {
+    const i = ISSUES.find((x) => x.key === key)
+    if (!i?.tracking) return
+    const t = i.tracking
+    const spent = Math.max(0, t.spent + secs)
+    i.tracking = { ...t, spent, remaining: t.estimate != null ? Math.max(0, t.estimate - spent) : t.remaining }
+  }
+  let attempts = 0
   // a believable past: most weekdays mostly filled, one leave day
   for (let i = 1; i <= 20; i++) {
     const d = addDays(today, -i)
@@ -51,7 +70,7 @@ export function createDemoJira() {
     },
     async sprintIssues() {
       await wait(250)
-      return ISSUES
+      return ISSUES.map((i) => ({ ...i }))
     },
     async timeOff() {
       return TIME_OFF
@@ -91,13 +110,25 @@ export function createDemoJira() {
       return [...ISSUES, ...OTHER, TIME_OFF].filter((i) => `${i.key} ${i.summary}`.toLowerCase().includes(s))
     },
     async addWorklog(d) {
-      await wait(180 + Math.random() * 200)
+      await wait(380 + Math.random() * 260)
+      if (FLAKY && !tried.has(d.id)) {
+        tried.add(d.id)
+        if (attempts++ % 2 === 1) throw FAILS[(Math.floor(attempts / 2) - 1) % FAILS.length]()
+      }
       logs.push({ id: String(nextId++), key: d.issue.key, summary: d.issue.summary, date: d.date, start: d.start, seconds: d.seconds, comment: d.comment })
+      track(d.issue.key, d.seconds)
     },
     async deleteWorklog(_k, id) {
       await wait(200)
       const i = logs.findIndex((l) => l.id === id)
-      if (i >= 0) logs.splice(i, 1)
+      if (i >= 0) track(logs[i].key, -logs.splice(i, 1)[0].seconds)
+    },
+    async startProgress(key) {
+      await wait(900)
+      if (FLAKY) throw new JiraError(400, "You don't have permission to transition this ticket.")
+      const i = ISSUES.find((x) => x.key === key)
+      if (i) Object.assign(i, { status: 'In Progress', statusCategory: 'indeterminate' })
+      return { status: 'In Progress', statusCategory: 'indeterminate' }
     },
   }
 }

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../store.js'
 import { progressOf } from '../lib/progress.js'
 import { fmt } from '../lib/time.js'
-import { Icon, KeyChip } from './ui.jsx'
+import { Icon, KeyChip, Spinner } from './ui.jsx'
 
 /**
  * Ticket preview: the backdrop fades in while the card springs up from slightly below;
@@ -15,7 +15,9 @@ export default function IssuePeek({ issue }) {
   const issueDetails = useStore((s) => s.issueDetails)
   const drafts = useStore((s) => s.drafts)
   const pending = useMemo(() => drafts.reduce((a, x) => (x.issue.key === issue.key ? a + x.seconds : a), 0), [drafts, issue.key])
+  const startProgress = useStore((s) => s.startProgress)
   const [state, setState] = useState({ status: 'loading' })
+  const [moving, setMoving] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -36,6 +38,21 @@ export default function IssuePeek({ issue }) {
 
   const d = state.status === 'ready' ? state.d : null
 
+  // optimistic: show In Progress at once, put the old status back if Jira refuses
+  const moveToInProgress = async () => {
+    const before = d
+    setMoving(true)
+    setState({ status: 'ready', d: { ...d, status: 'In Progress', statusCategory: 'indeterminate' } })
+    try {
+      const r = await startProgress(before)
+      setState((st) => (st.d ? { status: 'ready', d: { ...st.d, ...r } } : st))
+    } catch {
+      setState({ status: 'ready', d: before })
+    } finally {
+      setMoving(false)
+    }
+  }
+
   return createPortal(
     <motion.div className="peek-scrim" onMouseDown={closePeek}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.2, delay: 0.04 } }}
@@ -53,7 +70,13 @@ export default function IssuePeek({ issue }) {
               {d && (
                 <motion.span className="peek-top" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
                   {d.type && <span className="peek-type">{d.type}</span>}
-                  {d.status && <span className={'status-pill ' + d.statusCategory}>{d.status}</span>}
+                  {d.status && (
+                    <motion.span key={d.status} className={'status-pill ' + d.statusCategory} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 28 }}>
+                      {d.status}
+                    </motion.span>
+                  )}
+                  {moving && <span className="muted tiny peek-saving"><Spinner size={11} /> Saving to Jira…</span>}
                 </motion.span>
               )}
             </AnimatePresence>
@@ -96,7 +119,14 @@ export default function IssuePeek({ issue }) {
             onClick={(e) => { if (!d) e.preventDefault() }}>
             <Icon name="external" size={16} /> Open in Jira
           </a>
-          <motion.button className="btn small" whileTap={{ scale: 0.95 }} onClick={closePeek} autoFocus>Close</motion.button>
+          <div className="peek-foot-actions">
+            {d?.statusCategory === 'new' && (
+              <motion.button className="btn small primary" whileTap={{ scale: 0.95 }} onClick={moveToInProgress} disabled={moving}>
+                <Icon name="play" size={14} /> Move to In Progress
+              </motion.button>
+            )}
+            <motion.button className="btn small" whileTap={{ scale: 0.95 }} onClick={closePeek} autoFocus>Close</motion.button>
+          </div>
         </div>
       </motion.div>
     </motion.div>,

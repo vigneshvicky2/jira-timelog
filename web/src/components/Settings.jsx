@@ -41,10 +41,10 @@ export default function Settings({ onClose }) {
   }
 
   return (
-    <Modal onClose={onClose} width={600}>
+    <Modal onClose={onClose} width={600} label="Settings">
       <div className="modal-head">
         <h2>Settings</h2>
-        <button className="icon-btn small" onClick={onClose}><Icon name="close" /></button>
+        <button className="icon-btn small" onClick={onClose} aria-label="Close settings"><Icon name="close" /></button>
       </div>
 
       <section className="set-sec">
@@ -66,7 +66,34 @@ export default function Settings({ onClose }) {
       </section>
 
       <section className="set-sec">
-        <div className="set-title">Calendar meetings</div>
+        <div className="set-title">Reminders</div>
+        <label className="switch-row">
+          <div>
+            <div className="strong"><Icon name="bell" size={15} /> Remind me to log time</div>
+            <div className="muted small">A browser notification with a different fun message each day (while Stint is open in a tab).</div>
+          </div>
+          <Switch on={rem.enabled} onChange={(v) => setReminder({ enabled: v })} />
+        </label>
+        <AnimatePresence initial={false}>
+          {rem.enabled && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
+              <div className="rem-grid">
+                <label className="field inline">
+                  <span>Time</span>
+                  <input type="time" value={rem.time} onChange={(e) => setReminder({ time: e.target.value })} />
+                </label>
+                <label className="switch-row compact">
+                  <span>Weekdays only</span>
+                  <Switch on={rem.weekdaysOnly} onChange={(v) => setReminder({ weekdaysOnly: v })} />
+                </label>
+                <button className="ghost-btn small" onClick={test}>Send a test</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+      <section className="set-sec">
+        <div className="set-title">Calendar</div>
         <p className="muted small">
           In Google Calendar open <strong>Settings → your calendar → Integrate calendar</strong> and copy
           the <strong>Secret address in iCal format</strong> (not the public one). Outlook “ICS” publish links work too. No Google sign-in needed.
@@ -111,31 +138,22 @@ export default function Settings({ onClose }) {
       </section>
 
       <section className="set-sec">
-        <div className="set-title">Daily reminder</div>
-        <label className="switch-row">
+        <div className="set-title">About</div>
+        <div className="about">
+          <img src="/favicon.svg" alt="" width="44" height="44" />
           <div>
-            <div className="strong"><Icon name="bell" size={15} /> Remind me to log time</div>
-            <div className="muted small">A browser notification with a different fun message each day (while Stint is open in a tab).</div>
+            <div className="strong about-name">Stint <span className="muted small">v{__APP_VERSION__}</span></div>
+            <div className="muted small">Built by Vignesh Kodiswaran</div>
           </div>
-          <Switch on={rem.enabled} onChange={(v) => setReminder({ enabled: v })} />
-        </label>
-        <AnimatePresence initial={false}>
-          {rem.enabled && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
-              <div className="rem-grid">
-                <label className="field inline">
-                  <span>Time</span>
-                  <input type="time" value={rem.time} onChange={(e) => setReminder({ time: e.target.value })} />
-                </label>
-                <label className="switch-row compact">
-                  <span>Weekdays only</span>
-                  <Switch on={rem.weekdaysOnly} onChange={(v) => setReminder({ weekdaysOnly: v })} />
-                </label>
-                <button className="ghost-btn small" onClick={test}>Send a test</button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
+        <a className="about-link" href="https://github.com/vigneshvicky2/jira-timelog/releases" target="_blank" rel="noreferrer">
+          <Icon name="github" size={18} />
+          <span>
+            <span className="strong">Get the Android app</span>
+            <span className="muted small"> · latest APK on GitHub releases</span>
+          </span>
+          <Icon name="external" size={15} className="about-ext" />
+        </a>
       </section>
     </Modal>
   )

@@ -1,7 +1,7 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, animate, motion } from 'motion/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { TARGET } from '../lib/time.js'
+import { TARGET, fmt } from '../lib/time.js'
 import { useStore } from '../store.js'
 
 // ---------- icons (stroke style) ----------
@@ -33,6 +33,11 @@ const P = {
   external: 'M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h4',
   person: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',
   flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
+  alert: 'M12 9v4M12 17h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z',
+  undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3',
+  wand: 'M15 4V2M15 10V8M11 6h2M17 6h2M4 20L14 10M18 13v2M17 14h2',
+  play: 'M7 5v14l11-7L7 5z',
+  github: 'M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5a3 3 0 00-.9-2.3c3-.3 6-1.5 6-6.5a5 5 0 00-1.4-3.5 4.7 4.7 0 00-.1-3.5s-1.1-.3-3.6 1.4a12.4 12.4 0 00-6.4 0C6.1 1.4 5 1.7 5 1.7a4.7 4.7 0 00-.1 3.5A5 5 0 003.5 8.7c0 5 3 6.2 6 6.5a3 3 0 00-.9 2.3V21',
 }
 export function Icon({ name, size = 18, className, style }) {
   return (
@@ -63,6 +68,65 @@ export function Roll({ children, className = '' }) {
   )
 }
 
+// ---------- counting number ----------
+const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * A duration that counts smoothly from its old value to the new one (minute steps).
+ * `format` turns seconds into the label; defaults to "1h 30m".
+ */
+export function Count({ value, format = fmt, className = '', duration = 0.55 }) {
+  const ref = useRef(null)
+  const shown = useRef(value)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const from = shown.current
+    if (from === value || reduceMotion()) {
+      shown.current = value
+      el.textContent = format(value)
+      return
+    }
+    const ctl = animate(from, value, {
+      duration,
+      ease: [0.2, 0.8, 0.2, 1],
+      onUpdate: (v) => {
+        shown.current = v
+        el.textContent = format(Math.round(v / 60) * 60)
+      },
+    })
+    return () => ctl.stop()
+  }, [value, format, duration])
+  return <span ref={ref} className={'count ' + className} aria-label={format(value)}>{format(shown.current)}</span>
+}
+
+// ---------- tally illustration (the logo's 4 strokes + orange slash) ----------
+const TALLY = ['M33 30.5 L32 77', 'M45.5 28 L45 79', 'M58 30 L58.5 77.5', 'M70.5 28.5 L70 79']
+/** Each of the five marks stands for a fifth of today's 8h; partially drawn marks show progress in between. */
+export function Tally({ fraction = 0, size = 72 }) {
+  const f = Math.max(0, Math.min(1, fraction))
+  const part = (i) => Math.max(0, Math.min(1, f * 5 - i))
+  const spring = { type: 'spring', stiffness: 90, damping: 18 }
+  return (
+    <svg className="tally" viewBox="0 0 108 108" width={size} height={size} role="img"
+      aria-label={`${Math.round(f * 100)}% of today's 8 hours logged`}>
+      <rect width="108" height="108" rx="30" className="tally-tile" />
+      <g fill="none" strokeWidth="7.5" strokeLinecap="round">
+        {TALLY.map((d, i) => (
+          <g key={d}>
+            <path d={d} className="tally-ghost" />
+            <motion.path d={d} className="tally-ink" initial={{ pathLength: 0 }} animate={{ pathLength: part(i), opacity: part(i) > 0 ? 1 : 0 }}
+              transition={{ ...spring, delay: 0.1 + i * 0.08 }} />
+          </g>
+        ))}
+      </g>
+      <path d="M22 66 C42 58 62 47 86 36" fill="none" strokeWidth="8.5" strokeLinecap="round" className="tally-ghost slash" />
+      <motion.path d="M22 66 C42 58 62 47 86 36" fill="none" stroke="#FF6B35" strokeWidth="8.5" strokeLinecap="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: part(4), opacity: part(4) > 0 ? 1 : 0 }} transition={{ ...spring, delay: 0.45 }} />
+    </svg>
+  )
+}
+
 // ---------- 8h ring ----------
 export function Ring({ logged, pending, size = 60, stroke = 7, children }) {
   const total = logged + pending
@@ -76,7 +140,8 @@ export function Ring({ logged, pending, size = 60, stroke = 7, children }) {
   const spring = { type: 'spring', stiffness: 90, damping: 18 }
   return (
     <div className="ring" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img"
+        aria-label={`${fmt(total)} of 8h${pending ? `, ${fmt(pending)} not yet logged` : ''}${over ? ', over 8 hours' : ''}`}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         <motion.circle
           cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} strokeLinecap="round"
@@ -105,7 +170,8 @@ export const KeyChip = ({ k, className = '' }) => <span className={'keychip ' + 
 export const Spinner = ({ size = 16 }) => <span className="spinner" style={{ width: size, height: size }} />
 
 // ---------- popover anchored to an element rect ----------
-export function Popover({ anchor, onClose, width = 340, children, className = '' }) {
+export function Popover({ anchor, onClose, width: wanted = 340, children, className = '' }) {
+  const width = Math.min(wanted, window.innerWidth - 24)
   const ref = useRef(null)
   const [pos, setPos] = useState(null)
   useLayoutEffect(() => {
@@ -153,7 +219,7 @@ export function Popover({ anchor, onClose, width = 340, children, className = ''
 }
 
 // ---------- modal ----------
-export function Modal({ onClose, children, width = 560 }) {
+export function Modal({ onClose, children, width = 560, label }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -162,7 +228,7 @@ export function Modal({ onClose, children, width = 560 }) {
   return createPortal(
     <motion.div className="scrim" onMouseDown={onClose}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
-      <motion.div className="modal" style={{ width }} onMouseDown={(e) => e.stopPropagation()}
+      <motion.div className="modal" style={{ width }} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={label}
         initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 34 }}>
         {children}
@@ -175,8 +241,9 @@ export function Modal({ onClose, children, width = 560 }) {
 // ---------- toasts ----------
 export function Toasts() {
   const toasts = useStore((s) => s.toasts)
+  const dismiss = useStore((s) => s.dismissToast)
   return createPortal(
-    <div className="toasts">
+    <div className="toasts" role="status" aria-live="polite">
       <AnimatePresence initial={false}>
         {toasts.map((t) => (
           <motion.div key={t.id} layout className={'toast ' + t.kind}
@@ -184,7 +251,14 @@ export function Toasts() {
             exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
             transition={{ type: 'spring', stiffness: 500, damping: 34 }}>
             {t.kind === 'success' && <Icon name="check" size={16} />}
-            {t.text}
+            {t.kind === 'error' && <Icon name="alert" size={16} />}
+            <span className="toast-text">{t.text}</span>
+            {t.action && (
+              <button className="toast-action" onClick={() => { t.action.run(); dismiss(t.id) }}>
+                <Icon name="undo" size={15} /> {t.action.label}
+              </button>
+            )}
+            {t.action && <span className="toast-timer" style={{ animationDuration: `${t.duration}ms` }} />}
           </motion.div>
         ))}
       </AnimatePresence>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Today\'s logged time and a quick Log button</string>
+    <string name="shortcut_log_short">Log time</string>
+    <string name="shortcut_log_long">Log time on a ticket</string>
+</resources>

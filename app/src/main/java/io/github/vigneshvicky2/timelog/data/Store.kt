@@ -68,6 +68,26 @@ class Store(context: Context) {
         prefs.edit().putString("meetings", map.toString()).apply()
     }
 
+    /** Meetings the user always logs to their remembered ticket, added automatically each time. */
+    fun isAutoMeeting(title: String) = normalize(title) in autoMeetings()
+
+    fun setAutoMeeting(title: String, on: Boolean) {
+        val set = autoMeetings().toMutableSet()
+        if (on) set += normalize(title) else set -= normalize(title)
+        prefs.edit().putStringSet("autoMeetings", set).apply()
+    }
+
+    private fun autoMeetings(): Set<String> = prefs.getStringSet("autoMeetings", emptySet()) ?: emptySet()
+
+    // --- pinned tickets (outside the sprint, kept handy) ---
+
+    var pinned: List<Issue>
+        get() = runCatching {
+            val a = org.json.JSONArray(prefs.getString("pinned", "[]"))
+            (0 until a.length()).map { Cache.issue(a.getJSONObject(it)) }
+        }.getOrDefault(emptyList())
+        set(v) = prefs.edit().putString("pinned", org.json.JSONArray(v.map { Cache.issueJson(it) }).toString()).apply()
+
     private fun normalize(t: String) = t.lowercase().trim().replace(Regex("\\s+"), " ")
 
     // --- Keystore crypto ---

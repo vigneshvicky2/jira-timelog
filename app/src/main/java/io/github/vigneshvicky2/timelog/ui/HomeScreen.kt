@@ -11,6 +11,13 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -149,6 +156,18 @@ fun HomeScreen(vm: TimelogViewModel) {
     val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.refreshCalendar() }
 
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    LaunchedEffect(Unit) {
+        vm.undoables.collect { u ->
+            val r = snackbar.showSnackbar(u.text, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Short)
+            if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.undoDelete(u.id)
+        }
+    }
+    LaunchedEffect(vm.quickLogRequest) {
+        if (vm.quickLogRequest > 0) { quickStart = vm.today; showQuick = true }
+    }
+    LaunchedEffect(vm.failures) {
+        if (vm.failures > 0) haptics.performHapticFeedback(HapticFeedbackType.Reject)
+    }
     LaunchedEffect(vm.calendarStatus) {
         if (vm.calendarStatus == CalendarStatus.NoPermission && !askedCalendar) {
             askedCalendar = true
@@ -156,7 +175,7 @@ fun HomeScreen(vm: TimelogViewModel) {
         }
     }
     LaunchedEffect(vm.celebrate) {
-        if (vm.celebrate > 0) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (vm.celebrate > 0) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -199,11 +218,7 @@ fun HomeScreen(vm: TimelogViewModel) {
                         else -> {}
                     }
                     if (vm.loading && !vm.loadedOnce) {
-                        item(key = "loading") {
-                            Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
-                            }
-                        }
+                        item(key = "loading") { DaySkeleton() }
                     }
                     items(vm.selected.sorted(), key = { it.toString() }) { d ->
                         DayCard(
@@ -594,10 +609,9 @@ private fun DayCard(
     val pending = vm.pendingSeconds(date)
     val remaining = TARGET_SECONDS - logged - pending
     val dayDrafts = vm.drafts.filter { it.date == date }
-    val logs = vm.worklogs[date].orEmpty()
+    val logs = vm.logsOn(date)
     val meetings = vm.meetings[date].orEmpty()
     var showLogged by rememberSaveable(date.toString()) { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf<Worklog?>(null) }
 
     ElevatedCard(
         shape = RoundedCornerShape(30.dp),
@@ -658,7 +672,7 @@ private fun DayCard(
                     Spacer(Modifier.height(18.dp))
                     SectionLabel("Ready to log · swipe to remove")
                     dayDrafts.forEach { d ->
-                        key(d.id) { DraftRow(d, flag = draftFlag(vm, d.issue.key), onClick = { onEditDraft(d) }, onRemove = { vm.removeDraft(d.id) }, onPeek = { vm.openPeek(d.issue) }) }
+                        key(d.id) { DraftRow(d, flag = draftFlag(vm, d.issue.key), onClick = { onEditDraft(d) }, onRemove = { vm.removeDraft(d.id) }, onPeek = { vm.openPeek(d.issue) }, onRetry = { vm.retryDraft(d.id) }) }
                     }
                 }
             }
@@ -676,10 +690,12 @@ private fun DayCard(
                 }
                 AnimatedVisibility(showLogged, enter = fadeIn(tween(250, delayMillis = 80)), exit = fadeOut(tween(120))) {
                     Column {
-                        logs.forEachIndexed { i, w -> LoggedRow(w, Modifier.enter(i, always = true)) { confirmDelete = w } }
+                        logs.forEachIndexed { i, w -> key(w.id) { LoggedRow(w, Modifier.enter(i, always = true)) { vm.deleteWorklog(w) } } }
                     }
                 }
             }
+
+            SmartFill(vm, date, remaining, hasDrafts = dayDrafts.isNotEmpty())
 
             Spacer(Modifier.height(14.dp))
             val addPress = rememberPress(0.97f)
@@ -695,20 +711,80 @@ private fun DayCard(
             }
         }
     }
+}
 
-    confirmDelete?.let { w ->
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            icon = { Icon(Icons.Outlined.DeleteOutline, null) },
-            title = { Text("Delete from Jira?") },
-            text = { Text("${durationLabel(w.seconds)} on ${w.issueKey} will be removed from Jira.") },
-            confirmButton = {
-                TextButton(onClick = { vm.deleteWorklog(w); confirmDelete = null }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+/**
+ * One-tap ways to fill a day: repeat the last workday's tickets, or spread what's left across
+ * in-progress tickets. Both only add entries for review; nothing goes to Jira until Log all.
+ */
+@Composable
+private fun SmartFill(vm: TimelogViewModel, date: LocalDate, remaining: Long, hasDrafts: Boolean) {
+    if (remaining < 15 * 60 || date > vm.today || vm.isLeave(date)) return
+    val weekend = date.dayOfWeek == java.time.DayOfWeek.SATURDAY || date.dayOfWeek == java.time.DayOfWeek.SUNDAY
+    if (weekend) return
+    val pattern = if (!hasDrafts && vm.loggedSeconds(date) == 0L) vm.lastWorkdayPattern(date) else null
+    val canFill = vm.suggestions.any { it.statusCategory == "indeterminate" }
+    if (pattern == null && !canFill) return
+    val cs = MaterialTheme.colorScheme
+    Spacer(Modifier.height(14.dp))
+    Surface(shape = RoundedCornerShape(20.dp), color = cs.primaryContainer.copy(alpha = 0.45f)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.AutoAwesome, null, tint = cs.primary, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (pattern != null) {
+                        val (day, list) = pattern
+                        "${relativeLabel(day, vm.today)} you logged ${durationLabel(list.sumOf { it.second })} on ${list.size} ${if (list.size == 1) "ticket" else "tickets"}"
+                    } else "${durationLabel(remaining)} still free on this day",
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (pattern != null) {
+                    Button(onClick = { vm.copyLastWorkday(listOf(date)) }, shape = RoundedCornerShape(14.dp)) {
+                        Text("Repeat it")
+                    }
                 }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Keep") } },
-        )
+                if (canFill) {
+                    androidx.compose.material3.OutlinedButton(onClick = { vm.fillRest(date) }, shape = RoundedCornerShape(14.dp)) {
+                        Text("Fill the rest")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Placeholder shaped like a day card while the first load runs. */
+@Composable
+private fun DaySkeleton() {
+    val a by androidx.compose.animation.core.rememberInfiniteTransition(label = "sk").animateFloat(
+        0.35f, 0.7f,
+        androidx.compose.animation.core.infiniteRepeatable(tween(900), androidx.compose.animation.core.RepeatMode.Reverse),
+        label = "a",
+    )
+    val c = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = a)
+    Column(
+        Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(30.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(20.dp)
+            .semantics { contentDescription = "Loading your day" },
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(70.dp, 12.dp).clip(CircleShape).background(c))
+                Box(Modifier.size(170.dp, 20.dp).clip(CircleShape).background(c))
+                Box(Modifier.size(120.dp, 12.dp).clip(CircleShape).background(c))
+            }
+            Box(Modifier.size(96.dp).clip(CircleShape).background(c))
+        }
+        Spacer(Modifier.height(20.dp))
+        repeat(2) {
+            Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(20.dp)).background(c))
+            Spacer(Modifier.height(8.dp))
+        }
     }
 }
 
@@ -786,7 +862,7 @@ private fun MeetingCard(m: Meeting, added: Boolean, rememberedKey: String?, modi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DraftRow(d: Draft, flag: Pair<String, Color>?, onClick: () -> Unit, onRemove: () -> Unit, onPeek: () -> Unit) {
+private fun DraftRow(d: Draft, flag: Pair<String, Color>?, onClick: () -> Unit, onRemove: () -> Unit, onPeek: () -> Unit, onRetry: () -> Unit) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = {
         if (it != SwipeToDismissBoxValue.Settled) { onRemove(); true } else false
     })
@@ -819,7 +895,10 @@ private fun DraftRow(d: Draft, flag: Pair<String, Color>?, onClick: () -> Unit, 
                 ),
         ) {
             Row(Modifier.height(IntrinsicSize.Min).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.width(4.dp).fillMaxHeight().clip(CircleShape).background(flag?.second ?: cs.primary))
+                Box(
+                    Modifier.width(4.dp).fillMaxHeight().clip(CircleShape).background(flag?.second ?: cs.primary)
+                        .semantics { if (flag != null) contentDescription = flag.first.lowercase() },
+                )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -842,7 +921,14 @@ private fun DraftRow(d: Draft, flag: Pair<String, Color>?, onClick: () -> Unit, 
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    d.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = cs.error) }
+                    d.error?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = cs.error)
+                        TextButton(onClick = onRetry, contentPadding = PaddingValues(horizontal = 0.dp), modifier = Modifier.height(32.dp)) {
+                            Icon(Icons.Rounded.Refresh, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Retry")
+                        }
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(durationLabel(d.seconds), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -919,7 +1005,7 @@ private fun SubmitBar(vm: TimelogViewModel) {
                 Row(Modifier.padding(start = 22.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         RollingText(
-                            if (vm.submitting) "Logging…" else "$count ${if (count == 1) "entry" else "entries"} ready",
+                            if (vm.submitting) "Logging ${minOf(vm.submitDone + 1, vm.submitTotal)} of ${vm.submitTotal}…" else "$count ${if (count == 1) "entry" else "entries"} ready",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         )
                         val flagged = vm.drafts.map { it.issue.key }.distinct().count { draftFlag(vm, it)?.second.let { c -> c == OverColor || c == TodoColor } }
@@ -981,6 +1067,7 @@ private fun SettingsDialog(vm: TimelogViewModel, onDismiss: () -> Unit) {
         title = { Text(vm.displayName.ifBlank { "Settings" }) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
+                SettingsSection("Account")
                 Text(vm.email, style = MaterialTheme.typography.bodyMedium)
                 Text(vm.site, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
@@ -996,7 +1083,7 @@ private fun SettingsDialog(vm: TimelogViewModel, onDismiss: () -> Unit) {
                 )
 
                 androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 18.dp))
-
+                SettingsSection("Reminders")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.NotificationsActive, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(14.dp))
@@ -1036,6 +1123,25 @@ private fun SettingsDialog(vm: TimelogViewModel, onDismiss: () -> Unit) {
                 }
 
                 androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 18.dp))
+                SettingsSection("Home screen")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Widgets, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Today widget", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Today's time and a Log button. Long-press the app icon for a Log time shortcut too.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = {
+                        val m = ctx.getSystemService(android.appwidget.AppWidgetManager::class.java)
+                        if (m.isRequestPinAppWidgetSupported) {
+                            m.requestPinAppWidget(android.content.ComponentName(ctx, io.github.vigneshvicky2.timelog.widget.TodayWidget::class.java), null, null)
+                        } else vm.toast("Add it from your home screen's widget list")
+                    }) { Text("Add") }
+                }
+
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 18.dp))
+                SettingsSection("About")
                 val uvm: io.github.vigneshvicky2.timelog.update.UpdateViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.SystemUpdate, null, tint = MaterialTheme.colorScheme.primary)
@@ -1084,6 +1190,14 @@ private fun SettingsDialog(vm: TimelogViewModel, onDismiss: () -> Unit) {
             dismissButton = { TextButton(onClick = { pickTime = false }) { Text("Cancel") } },
         )
     }
+}
+
+@Composable
+private fun SettingsSection(title: String) {
+    Text(
+        title.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp),
+    )
 }
 
 fun relativeLabel(d: LocalDate, today: LocalDate): String {

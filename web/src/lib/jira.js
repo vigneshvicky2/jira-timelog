@@ -22,7 +22,7 @@ export function createJira({ site, email, token }) {
         body: body ? JSON.stringify(body) : undefined,
       })
     } catch {
-      throw new JiraError(0, 'Network problem. Check your connection.')
+      throw new JiraError(0, OFFLINE)
     }
     const text = await res.text()
     if (!res.ok) throw new JiraError(res.status, errorMessage(res.status, text))
@@ -193,20 +193,47 @@ export function createJira({ site, email, token }) {
     async deleteWorklog(key, id) {
       await request('DELETE', `rest/api/3/issue/${key}/worklog/${id}`)
     },
+
+    /** Moves a ticket to the first transition that lands in an "In Progress" category status. */
+    async startProgress(key) {
+      const res = await request('GET', `rest/api/3/issue/${key}/transitions`)
+      const list = res.transitions || []
+      const t =
+        list.find((x) => x.to?.statusCategory?.key === 'indeterminate' && /in progress/i.test(x.to?.name || x.name)) ||
+        list.find((x) => x.to?.statusCategory?.key === 'indeterminate')
+      if (!t) throw new JiraError(400, "This ticket's workflow has no In Progress step you can move it to.")
+      await request('POST', `rest/api/3/issue/${key}/transitions`, { transition: { id: t.id } })
+      return { status: t.to?.name || 'In Progress', statusCategory: 'indeterminate' }
+    },
   }
 }
 
+export const OFFLINE = "You're offline. Check your connection and retry."
+export const BAD_KEY = 'Jira rejected your API key. Reconnect in Settings.'
+export const NOT_FOUND = "That ticket no longer exists or you can't see it."
+
+/** Turns a Jira HTTP failure into a sentence a person can act on. */
 function errorMessage(status, text) {
-  if (status === 401) return "That API key didn't work. Check your email and key."
-  if (status === 403) return "Jira says you don't have permission for this."
+  if (status === 401 || status === 403) return BAD_KEY
+  if (status === 404) return NOT_FOUND
   try {
     const o = JSON.parse(text)
-    const msgs = [...(o.errorMessages || []), ...Object.values(o.errors || {})]
+    const msgs = [...(o.errorMessages || []), ...Object.values(o.errors || {})].filter(Boolean)
     if (msgs.length) return msgs.join(' ')
   } catch {
     /* not json */
   }
+  if (status === 429) return 'Jira is busy right now. Wait a moment and retry.'
+  if (status >= 500) return `Jira had a problem on its side (${status}). Retry in a moment.`
   return `Jira returned an error (${status}).`
+}
+
+/** Friendly text for any error thrown while talking to Jira. */
+export function friendlyError(e) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return OFFLINE
+  if (e instanceof JiraError) return e.message
+  if (e instanceof TypeError || /network|failed to fetch|load failed/i.test(e?.message || '')) return OFFLINE
+  return e?.message || 'Something went wrong. Retry in a moment.'
 }
 
 const adf = (text) => ({

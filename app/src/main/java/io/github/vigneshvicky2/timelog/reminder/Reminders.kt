@@ -22,6 +22,8 @@ object Reminders {
     private const val CHANNEL = "timelog_reminders"
     private const val REQUEST = 4201
     private const val NOTIFICATION_ID = 7001
+    private const val SNOOZE_REQUEST = 4202
+    const val ACTION_LOG = "io.github.vigneshvicky2.timelog.LOG_TIME"
 
     private fun LocalDate.onWeekend() = dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY
 
@@ -66,19 +68,52 @@ object Reminders {
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val log = PendingIntent.getActivity(
+            context, 1,
+            Intent(context, MainActivity::class.java).setAction(ACTION_LOG)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val snooze = PendingIntent.getBroadcast(
+            context, SNOOZE_REQUEST, Intent(context, SnoozeReceiver::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         val n = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
-            .setColor(0xFF6C5CE7.toInt())
+            .setColor(0xFFFF6B35.toInt())
             .setContentIntent(open)
+            .addAction(Notification.Action.Builder(null as android.graphics.drawable.Icon?, "Log time", log).build())
+            .addAction(Notification.Action.Builder(null as android.graphics.drawable.Icon?, "Snooze 1 hour", snooze).build())
             .setAutoCancel(true)
             .build()
         nm.notify(NOTIFICATION_ID, n)
     }
 
     fun isWeekend(d: LocalDate) = d.onWeekend()
+
+    /** Clears the reminder and shows it again in an hour, without touching the daily schedule. */
+    fun snooze(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+        val am = context.getSystemService(AlarmManager::class.java)
+        val pi = PendingIntent.getBroadcast(
+            context, SNOOZE_REQUEST + 1, Intent(context, SnoozeReceiver::class.java).setAction("fire"),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60 * 60 * 1000L, pi)
+    }
+
+    fun dismiss(context: Context) =
+        context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+}
+
+/** "Snooze 1 hour" on the reminder, and the snoozed alarm firing an hour later. */
+class SnoozeReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == "fire") Reminders.show(context) else Reminders.snooze(context)
+    }
 }
 
 /** Fires at the chosen time, shows today's message, then schedules tomorrow's. */

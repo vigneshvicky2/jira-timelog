@@ -25,6 +25,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val vmMain = androidx.lifecycle.ViewModelProvider(this)[TimelogViewModel::class.java]
+        val quickLaunch = intent?.action == io.github.vigneshvicky2.timelog.reminder.Reminders.ACTION_LOG
+        if (quickLaunch && savedInstanceState == null) handleLog(vmMain)
         setContent {
             TimelogTheme {
                 val vm: TimelogViewModel = viewModel()
@@ -37,12 +40,25 @@ class MainActivity : ComponentActivity() {
                     label = "root",
                 ) { ready -> EntranceScope { if (ready) HomeScreen(vm) else SetupScreen(vm) } }
                     io.github.vigneshvicky2.timelog.ui.IssuePeekHost(vm)
-                    var splash by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(savedInstanceState == null) }
+                    var splash by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(savedInstanceState == null && !quickLaunch) }
                     // Hold update prompts and "What's new" until the splash has finished.
                     if (splash) io.github.vigneshvicky2.timelog.ui.SplashOverlay(onDone = { splash = false })
                     else io.github.vigneshvicky2.timelog.update.UpdateHost(viewModel())
                 } }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == io.github.vigneshvicky2.timelog.reminder.Reminders.ACTION_LOG) {
+            handleLog(androidx.lifecycle.ViewModelProvider(this)[TimelogViewModel::class.java])
+        }
+    }
+
+    /** Opened from the "Log time" shortcut, widget or reminder: go straight to Add time. */
+    private fun handleLog(vm: TimelogViewModel) {
+        io.github.vigneshvicky2.timelog.reminder.Reminders.dismiss(this)
+        vm.requestQuickLog()
     }
 }
