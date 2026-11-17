@@ -327,8 +327,12 @@ button.avatar:hover { transform: scale(1.06); }
 /* meetings row */
 .row.meetings { border-bottom: 1px solid var(--border); }
 .rh-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; }
-.mcell { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 0; border-left: 1px solid var(--border); }
-.mempty { font-size: 12px; color: var(--muted); padding: 6px 4px; }
+.mcell {
+  padding: 8px; min-width: 0; border-left: 1px solid var(--border);
+  /* meetings flow into columns when the day is wide, instead of one tall stack */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 6px; align-content: start;
+}
+.mempty { grid-column: 1 / -1; font-size: 12px; color: var(--muted); padding: 6px 4px; }
 .mchip {
   display: flex; gap: 8px; align-items: center; width: 100%; padding: 7px 9px; border-radius: 10px; text-align: left;
   background: var(--surface-2); border: 1px solid transparent; transition: background 0.2s var(--ease), border-color 0.2s var(--ease);

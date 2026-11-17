@@ -65,9 +65,10 @@ export default function Timesheet({ onOpenSettings }) {
   const flat = useMemo(() => sections.flatMap((s) => s.rows.map((r) => ({ ...r, leave: !!s.leave }))), [sections])
   const rowIndex = useMemo(() => Object.fromEntries(flat.map((r, i) => [r.key, i])), [flat])
 
-  // desktop: a roomy ticket column and day columns capped so one selected day isn't a huge empty strip
-  const cols = `minmax(290px, 1fr) repeat(${days.length}, minmax(150px, 230px))`
-  const minWidth = 292 + days.length * 150
+  // desktop: the ticket column stays readable (290-420px) and the days share the rest, so on a
+  // wide screen the space goes to the days, where meetings and times live
+  const cols = `minmax(290px, 420px) repeat(${days.length}, minmax(160px, 1fr))`
+  const minWidth = 292 + days.length * 160
   // phone: ticket rows become full-width cards; day cells sit under them and scroll sideways inside the grid
   const colsM = `repeat(${days.length}, minmax(124px, 1fr))`
   const minWidthM = days.length * 124
