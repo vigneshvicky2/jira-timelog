@@ -952,3 +952,47 @@ button.avatar:hover { transform: scale(1.06); }
   .btn.primary.idle:disabled { background: var(--surface-2); }
 }
 .side-foot .built-by { text-align: right; }
+
+/* ---------- new sprint celebration (mirrors the Android app) ---------- */
+.sprint-change {
+  position: fixed; inset: 0; z-index: 900; background: #111113; color: #F4EFE6;
+  display: grid; place-items: center; padding: 24px; cursor: pointer;
+}
+.sc-stack { width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.sc-old { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 44px; }
+.sc-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 12px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.sc-pill.done { color: #3DD68C; background: rgba(61, 214, 140, 0.14); }
+.sc-pill.new { color: #9DB2FF; background: rgba(157, 178, 255, 0.14); margin-bottom: 12px; }
+.sc-old-name {
+  font-family: var(--display); font-weight: 800; font-size: clamp(24px, 4vw, 32px); line-height: 1.25; letter-spacing: -0.02em;
+  /* the strike: the logo's rising orange slash, swept across each line */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cline x1='1' y1='68' x2='99' y2='40' stroke='%23FF6B35' stroke-width='6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: left center;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; padding: 0 6px;
+}
+.sc-slot { overflow: hidden; padding: 0 4px 4px; }
+.sc-new-name { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 6vw, 52px); line-height: 1.08; letter-spacing: -0.03em; }
+.sc-sub { margin-top: 12px; color: #A29F98; font-size: 15px; }
+.sc-go {
+  margin-top: 40px; height: 56px; padding: 0 44px; border-radius: 20px; border: 0; cursor: pointer;
+  background: #F3F1EC; color: #111113; font-weight: 800; font-size: 16px;
+}
+.sc-go:focus-visible { outline: 3px solid #FF6B35; outline-offset: 3px; }
+
+/* ---------- sprint countdown ---------- */
+.sprint-left { margin-left: 2px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 16%, transparent); font-size: 12px; font-weight: 800; }
+.sprint-left.urgent { color: var(--over-ink); background: color-mix(in srgb, var(--over) 16%, transparent); }
+.sprint-card { margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: var(--surface-2); --accent: var(--primary); }
+.sprint-card.urgent { --accent: var(--over); }
+.sprint-card-top { display: flex; align-items: center; gap: 8px; color: var(--accent); }
+.sprint-card-name { flex: 1; min-width: 0; color: var(--text); font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sprint-card-left { font-weight: 800; font-size: 12.5px; white-space: nowrap; }
+.sprint-card.urgent .sprint-card-left { color: var(--over-ink); }
+.sprint-card-bar { height: 6px; border-radius: 3px; background: var(--surface-3); margin-top: 10px; overflow: hidden; }
+.sprint-card-bar span { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.sprint-card-sub { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.sprint-card.compact { margin: 8px 0 0; padding: 10px 12px; }
+.sprint-card.compact .sprint-card-bar { margin-top: 8px; height: 4px; }

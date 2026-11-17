@@ -279,7 +279,7 @@ export function Confetti() {
     canvas.width = innerWidth * dpr
     canvas.height = innerHeight * dpr
     ctx.scale(dpr, dpr)
-    const colors = ['#6C5CE7', '#00B4D8', '#FF8A3D', '#2EBD85', '#FFD60A', '#FF5D8F']
+    const colors = ['#FF6B35', '#7D9BFF', '#3DD68C', '#FFD60A', '#F4EFE6', '#F2708A']
     const parts = Array.from({ length: 220 }, () => {
       const a = Math.random() * Math.PI * 2
       const v = 4 + Math.random() * 10

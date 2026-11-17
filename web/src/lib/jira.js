@@ -75,6 +75,7 @@ export function createJira({ site, email, token }) {
         const active = Array.isArray(sprints) ? sprints.filter((s) => s.state === 'active').pop() : null
         return {
           ...toIssue(o, active?.name),
+          ...(active ? { sprintInfo: { id: active.id, name: active.name, start: active.startDate || null, end: active.endDate || null } } : {}),
           status: o.fields?.status?.name || '',
           statusCategory: o.fields?.status?.statusCategory?.key || '',
           tracking: trackingOf(o.fields),

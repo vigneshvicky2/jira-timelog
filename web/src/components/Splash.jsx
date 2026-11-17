@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useStore } from '../store.js'
 
 const STROKES = ['M33 30.5 L32 77', 'M45.5 28 L45 79', 'M58 30 L58.5 77.5', 'M70.5 28.5 L70 79']
 const SEEN = 'stint.splashSeen'
@@ -39,6 +40,10 @@ export default function Splash() {
     if (state !== 'exit') return
     const t = setTimeout(() => setState('done'), TOTAL - EXIT)
     return () => clearTimeout(t)
+  }, [state])
+
+  useEffect(() => {
+    if (state === 'done') useStore.getState().setSplashDone()
   }, [state])
 
   if (state === 'done') return null

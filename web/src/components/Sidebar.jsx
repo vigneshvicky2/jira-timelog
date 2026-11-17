@@ -1,4 +1,5 @@
 import ScrollArea from './ScrollArea.jsx'
+import { detail, elapsed, ended, shortLeft, workdaysLeft } from '../lib/sprint.js'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import { TARGET, addDays, addMonths, fmt, fromIso, isWeekend, longDate, monthLabel } from '../lib/time.js'
@@ -66,6 +67,7 @@ export default function Sidebar({ onClose }) {
         ))}
       </div>
 
+      <SprintCard />
       <SelectionSummary selected={selected} />
 
       <div className="side-foot">
@@ -111,6 +113,35 @@ function DayCell({ d, inMonth }) {
       <span className="num">{Number(d.slice(8))}</span>
       <span className="mini-bar"><motion.span animate={{ width: `${pct * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 20 }} /></span>
     </motion.button>
+  )
+}
+
+/** The active sprint: name, workdays left and how much of it has gone. */
+export function SprintCard({ compact = false }) {
+  const sprint = useStore((s) => s.sprint)
+  if (!sprint) return null
+  const left = workdaysLeft(sprint)
+  const gone = elapsed(sprint)
+  const done = ended(sprint)
+  const urgent = done || (left != null && left <= 2)
+  const label = shortLeft(sprint)
+  const sub = detail(sprint)
+  return (
+    <motion.div className={'sprint-card' + (urgent ? ' urgent' : '') + (compact ? ' compact' : '')}
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+      <div className="sprint-card-top">
+        <Icon name="flag" size={15} />
+        <span className="sprint-card-name" title={sprint.name}>{sprint.name}</span>
+        {label && <span className="sprint-card-left">{label}</span>}
+      </div>
+      {gone != null && (
+        <div className="sprint-card-bar" role="progressbar" aria-label="Sprint elapsed" aria-valuemin={0} aria-valuemax={100}
+          aria-valuenow={Math.round(gone * 100)} aria-valuetext={sub || undefined}>
+          <motion.span initial={{ width: 0 }} animate={{ width: `${gone * 100}%` }} transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }} />
+        </div>
+      )}
+      {sub && !compact && <div className="sprint-card-sub">{done ? `${sub} · the next sprint hasn't started yet` : sub}</div>}
+    </motion.div>
   )
 }
 
@@ -160,6 +191,7 @@ export function WeekStrip({ onOpenCalendar }) {
       <ScrollArea hostClassName="strip-host" className="strip-days" innerRef={ref}>
         {days.map((d) => <StripDay key={d} d={d} />)}
       </ScrollArea>
+      <SprintCard compact />
     </div>
   )
 }

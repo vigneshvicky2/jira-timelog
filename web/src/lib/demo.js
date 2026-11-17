@@ -15,6 +15,12 @@ const ISSUES = [
   { key: 'WEB-233', summary: 'Code reviews', sprint: SPRINT, ...st('In Review', 'indeterminate', 10 * H, 4 * H) },
 ]
 const TIME_OFF = { key: 'WEB-200', summary: 'Time off' }
+// a two-week sprint that started last Wednesday
+const SPRINT_INFO = (() => {
+  const start = new Date(); start.setDate(start.getDate() - ((start.getDay() + 4) % 7)); start.setHours(9, 0, 0, 0)
+  const end = new Date(start); end.setDate(end.getDate() + 13); end.setHours(18, 0, 0, 0)
+  return { id: 42, name: SPRINT, start: start.toISOString(), end: end.toISOString() }
+})()
 const OTHER = [
   { key: 'OPS-77', summary: 'On-call handover notes' },
   { key: 'OPS-81', summary: 'Upgrade staging database' },
@@ -70,7 +76,7 @@ export function createDemoJira() {
     },
     async sprintIssues() {
       await wait(250)
-      return ISSUES.map((i) => ({ ...i }))
+      return ISSUES.map((i) => ({ ...i, sprintInfo: SPRINT_INFO }))
     },
     async timeOff() {
       return TIME_OFF

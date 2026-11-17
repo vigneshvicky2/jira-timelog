@@ -3,11 +3,15 @@ import { TARGET, fmt } from '../lib/time.js'
 import { useShallow } from 'zustand/react/shallow'
 import { DEMO, loggedOn, pendingOn, useStore } from '../store.js'
 import { Count, Icon } from './ui.jsx'
+import { ended, shortLeft, workdaysLeft } from '../lib/sprint.js'
 
 export default function Header({ onSettings, onToggleReview, reviewCount }) {
   const me = useStore((s) => s.me)
   const sprintName = useStore((s) => s.sprintName)
   const sprintCount = useStore((s) => s.sprintIssues.length)
+  const sprint = useStore((s) => s.sprint)
+  const sprintLeft = shortLeft(sprint)
+  const sprintUrgent = ended(sprint) || (workdaysLeft(sprint) ?? 99) <= 2
   const loading = useStore((s) => s.loading)
   const refresh = useStore((s) => s.refresh)
   const loadCalendar = useStore((s) => s.loadCalendar)
@@ -36,6 +40,7 @@ export default function Header({ onSettings, onToggleReview, reviewCount }) {
           <Icon name="bolt" size={15} />
           <span>{sprintName}</span>
           <span className="muted">· {sprintCount} ticket{sprintCount === 1 ? '' : 's'}</span>
+          {sprintLeft && <span className={'sprint-left' + (sprintUrgent ? ' urgent' : '')}>{sprintLeft}</span>}
         </motion.div>
       )}
 

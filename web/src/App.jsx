@@ -7,6 +7,7 @@ import Settings from './components/Settings.jsx'
 import Setup from './components/Setup.jsx'
 import Shortcuts from './components/Shortcuts.jsx'
 import Splash from './components/Splash.jsx'
+import SprintChange from './components/SprintChange.jsx'
 import Sidebar, { WeekStrip } from './components/Sidebar.jsx'
 import Timesheet from './components/Timesheet.jsx'
 import { Confetti, Icon, Spinner, Toasts } from './components/ui.jsx'
@@ -24,6 +25,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <AnimatePresence mode="wait">{connected ? <Main key="main" /> : <Setup key="setup" />}</AnimatePresence>
       <Toasts />
+      <SprintChange />
       <Confetti />
       <Splash />
     </MotionConfig>

@@ -32,6 +32,8 @@ const LS = {
 
 export const DEMO = new URLSearchParams(location.search).has('demo')
 const P = DEMO ? 'tl.demo.' : 'tl.'
+// ?demo&newsprint replays the new-sprint celebration
+if (DEMO && new URLSearchParams(location.search).has('newsprint')) LS.set(P + 'seenSprint', 'Sprint 41 · Payments polish')
 const DEFAULT_SETTINGS = { icsUrls: [], reminder: { enabled: false, time: '18:00', weekdaysOnly: true } }
 
 let api = null
@@ -107,6 +109,12 @@ export const useStore = create((set, get) => ({
   loading: false,
   sprintIssues: [],
   sprintName: null,
+  /** The active sprint with its dates (the one ending soonest when there are several). */
+  sprint: null,
+  /** { from, to } when a new sprint started since the last visit; cleared once celebrated. */
+  sprintChange: null,
+  /** False while the launch splash plays, so the sprint celebration waits for it. */
+  splashDone: false,
   timeOff: null,
   pinned: LS.get(P + 'pinned', []),
   drafts: LS.get(P + 'drafts', []),
@@ -188,7 +196,10 @@ export const useStore = create((set, get) => ({
     try {
       const issues = await api.sprintIssues()
       const names = [...new Set(issues.map((i) => i.sprint).filter(Boolean))]
-      set({ sprintIssues: issues, sprintName: names.join(' · ') || null })
+      const infos = [...new Map(issues.filter((i) => i.sprintInfo).map((i) => [i.sprintInfo.id, i.sprintInfo])).values()]
+      const sprint = infos.sort((a, b) => (a.end ? Date.parse(a.end) : Infinity) - (b.end ? Date.parse(b.end) : Infinity))[0] || null
+      set({ sprintIssues: issues, sprintName: names.join(' · ') || null, sprint })
+      get().noteSprint(sprint?.name)
       const projects = [...new Set(issues.map((i) => i.key.split('-')[0]))]
       set({ timeOff: await api.timeOff(projects) })
     } catch (e) {
@@ -638,6 +649,20 @@ export const useStore = create((set, get) => ({
   dismissToast(id) {
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
   },
+  /** Remembers the sprint; if it differs from the last one seen, queues the celebration once. */
+  noteSprint(name) {
+    if (!name) return
+    const seen = LS.get(P + 'seenSprint', null)
+    if (seen && seen !== name) set({ sprintChange: { from: seen, to: name } })
+    LS.set(P + 'seenSprint', name)
+  },
+  dismissSprintChange() {
+    set({ sprintChange: null })
+  },
+  setSplashDone() {
+    set({ splashDone: true })
+  },
+
   setShortcuts(v) {
     set({ shortcuts: v })
   },
