@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
                     io.github.vigneshvicky2.timelog.ui.IssuePeekHost(vm)
                     var splash by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(savedInstanceState == null && !quickLaunch) }
                     // Hold update prompts and "What's new" until the splash has finished.
+                    androidx.compose.runtime.LaunchedEffect(splash) { if (!splash) vm.onSplashDone() }
                     if (splash) io.github.vigneshvicky2.timelog.ui.SplashOverlay(onDone = { splash = false })
                     else io.github.vigneshvicky2.timelog.update.UpdateHost(viewModel())
                 } }

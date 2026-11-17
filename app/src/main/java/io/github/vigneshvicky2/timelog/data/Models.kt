@@ -14,6 +14,14 @@ data class Issue(
     val tracking: TimeTracking? = null,
 )
 
+/** The active sprint, with its dates when Jira has them. */
+data class SprintInfo(
+    val id: Long,
+    val name: String,
+    val start: java.time.Instant? = null,
+    val end: java.time.Instant? = null,
+)
+
 data class Worklog(
     val id: String,
     val issueKey: String,

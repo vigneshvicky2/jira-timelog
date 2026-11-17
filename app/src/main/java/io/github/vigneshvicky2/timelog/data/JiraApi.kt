@@ -101,8 +101,12 @@ class JiraApi(private val site: String, email: String, token: String) {
         return null
     }
 
+    /** Active sprints seen by the last [currentSprintIssues] call, with their dates. */
+    @Volatile var activeSprints: List<SprintInfo> = emptyList(); private set
+
     /** Tickets assigned to the user in the currently active sprint(s), with the sprint name. */
     suspend fun currentSprintIssues(): List<Issue> = io {
+        val seen = linkedMapOf<Long, SprintInfo>()
         val field = runCatching { findSprintField() }.getOrNull()
         val fields = JSONArray().put("summary").put("status").put("timetracking").put("timeoriginalestimate")
             .put("timeestimate").put("timespent").also { a -> field?.let { a.put(it) } }
@@ -118,7 +122,13 @@ class JiraApi(private val site: String, email: String, token: String) {
             var name: String? = null
             if (sprints != null) for (j in 0 until sprints.length()) {
                 val s = sprints.optJSONObject(j) ?: continue
-                if (s.optString("state") == "active") name = s.optString("name")
+                if (s.optString("state") == "active") {
+                    name = s.optString("name")
+                    val id = s.optLong("id")
+                    seen.getOrPut(id) {
+                        SprintInfo(id, name, instantOrNull(s.optString("startDate")), instantOrNull(s.optString("endDate")))
+                    }
+                }
             }
             val status = f?.optJSONObject("status")
             Issue(
@@ -127,8 +137,11 @@ class JiraApi(private val site: String, email: String, token: String) {
                 statusCategory = status?.optJSONObject("statusCategory")?.optString("key").orEmpty(),
                 tracking = f?.let { trackingOf(it) },
             )
-        }
+        }.also { activeSprints = seen.values.toList() }
     }
+
+    private fun instantOrNull(v: String?): java.time.Instant? =
+        v?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant() }.getOrNull() }
 
     /**
      * Each sprint has one unassigned "Time off" ticket that everyone logs leave against.

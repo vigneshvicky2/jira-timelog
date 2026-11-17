@@ -22,6 +22,7 @@ class Cache(context: Context) {
         val suggestions: List<Issue>,
         val sprintName: String?,
         val timeOff: Issue?,
+        val sprint: SprintInfo? = null,
     )
 
     fun loadDrafts(): List<Draft> = read(draftsFile) { o ->
@@ -37,6 +38,13 @@ class Cache(context: Context) {
             suggestions = o.optJSONArray("suggestions").objects().map { issue(it) },
             sprintName = o.optString("sprintName").ifBlank { null },
             timeOff = o.optJSONObject("timeOff")?.let { issue(it) },
+            sprint = o.optJSONObject("sprint")?.let { sp ->
+                SprintInfo(
+                    sp.getLong("id"), sp.getString("name"),
+                    sp.optString("start").ifBlank { null }?.let { java.time.Instant.parse(it) },
+                    sp.optString("end").ifBlank { null }?.let { java.time.Instant.parse(it) },
+                )
+            },
         )
     }
 
@@ -46,7 +54,13 @@ class Cache(context: Context) {
             .put("worklogs", JSONArray(s.worklogs.map { worklogJson(it) }))
             .put("suggestions", JSONArray(s.suggestions.map { issueJson(it) }))
             .put("sprintName", s.sprintName ?: "")
-            .apply { s.timeOff?.let { put("timeOff", issueJson(it)) } },
+            .apply { s.timeOff?.let { put("timeOff", issueJson(it)) } }
+            .apply {
+                s.sprint?.let { sp ->
+                    put("sprint", JSONObject().put("id", sp.id).put("name", sp.name)
+                        .put("start", sp.start?.toString() ?: "").put("end", sp.end?.toString() ?: ""))
+                }
+            },
     )
 
     fun clear() {

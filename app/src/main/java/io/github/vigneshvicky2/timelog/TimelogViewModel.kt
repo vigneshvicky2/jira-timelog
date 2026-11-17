@@ -70,6 +70,14 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
     /** Only tickets assigned to the user in the active sprint. */
     var suggestions by mutableStateOf<List<Issue>>(emptyList()); private set
     var sprintName by mutableStateOf<String?>(null); private set
+    /** The active sprint with its dates, for the countdown. */
+    var sprint by mutableStateOf<io.github.vigneshvicky2.timelog.data.SprintInfo?>(null); private set
+    /** Old and new sprint names when a new sprint started since the last visit; cleared once shown. */
+    var sprintChange by mutableStateOf<Pair<String, String>?>(null); private set
+    /** False while the launch splash is playing, so celebrations wait for it. */
+    var splashDone by mutableStateOf(false); private set
+    fun onSplashDone() { splashDone = true }
+    fun dismissSprintChange() { sprintChange = null }
     /** The sprint's shared leave ticket (e.g. "Time off"). */
     var timeOff by mutableStateOf<Issue?>(null); private set
     var celebrate by mutableIntStateOf(0); private set
@@ -206,11 +214,14 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
                     .onSuccess { list ->
                         suggestions = list
                         sprintName = list.mapNotNull { it.sprint }.distinct().joinToString(" · ").ifBlank { null }
+                        // The sprint ending soonest is the one the countdown follows.
+                        sprint = a.activeSprints.minByOrNull { it.end ?: java.time.Instant.MAX }
+                        noteSprint(sprint?.name)
                     }
                     .onFailure { messages.tryEmit("Couldn't load sprint tickets: ${it.message}") }
                 val projects = suggestions.map { it.key.substringBefore('-') }.distinct()
                 timeOff = a.timeOffIssue(projects)
-                val snap = io.github.vigneshvicky2.timelog.data.Cache.Snapshot(logs, suggestions, sprintName, timeOff)
+                val snap = io.github.vigneshvicky2.timelog.data.Cache.Snapshot(logs, suggestions, sprintName, timeOff, sprint)
                 withContext(Dispatchers.IO) { cache.saveSnapshot(snap) }
                 io.github.vigneshvicky2.timelog.widget.TodayWidget.update(getApplication(), todaySummary())
                 loadMeetings(force = true)
@@ -676,12 +687,42 @@ class TimelogViewModel(app: Application) : AndroidViewModel(app) {
         store.pinned = pinned
     }
 
+    // ---------- sprint ----------
+
+    /** Remembers the sprint and, if it differs from the last one seen, queues the celebration. */
+    private fun noteSprint(name: String?) {
+        if (name.isNullOrBlank()) return
+        val seen = store.seenSprint
+        if (seen != null && seen != name) sprintChange = seen to name
+        store.seenSprint = name
+    }
+
+    /** Working days (Mon-Fri) left in the sprint, counting today; null without an end date. */
+    fun sprintWorkdaysLeft(): Int? {
+        val end = sprint?.end?.atZone(zone)?.toLocalDate() ?: return null
+        if (end < today) return 0
+        var n = 0
+        var d = today
+        while (d <= end) { if (isWorkday(d)) n++; d = d.plusDays(1) }
+        return n
+    }
+
+    /** How far through the sprint we are, 0..1; null without dates. */
+    fun sprintElapsed(): Float? {
+        val s = sprint?.start ?: return null
+        val e = sprint?.end ?: return null
+        val total = (e.toEpochMilli() - s.toEpochMilli()).toFloat()
+        if (total <= 0f) return null
+        return ((System.currentTimeMillis() - s.toEpochMilli()) / total).coerceIn(0f, 1f)
+    }
+
     // ---------- snapshot ----------
 
     private fun applySnapshot(s: io.github.vigneshvicky2.timelog.data.Cache.Snapshot) {
         worklogs = s.worklogs.groupBy { it.date }.mapValues { (_, v) -> v.sortedBy { it.start } }
         suggestions = s.suggestions
         sprintName = s.sprintName
+        sprint = s.sprint
         timeOff = s.timeOff
     }
 

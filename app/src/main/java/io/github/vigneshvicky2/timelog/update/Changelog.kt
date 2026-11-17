@@ -5,6 +5,14 @@ data class ChangelogEntry(val version: String, val title: String, val items: Lis
 
 val CHANGELOG = listOf(
     ChangelogEntry(
+        "1.5.1", "Sprint countdown",
+        listOf(
+            "Home shows your sprint with the workdays left and how far through it you are.",
+            "When a new sprint starts, the old one gets crossed off and the new one is welcomed in.",
+            "Entries ready to log are tidier: the start time no longer squeezes the top line.",
+        ),
+    ),
+    ChangelogEntry(
         "1.5.0", "Faster, safer, smarter",
         listOf(
             "Opens instantly with your last data, then refreshes in the background.",

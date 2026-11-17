@@ -28,6 +28,11 @@ class Store(context: Context) {
         get() = prefs.getString("displayName", "") ?: ""
         set(v) = prefs.edit().putString("displayName", v).apply()
 
+    /** The last sprint the user saw, so a new one can be celebrated once. */
+    var seenSprint: String?
+        get() = prefs.getString("seenSprint", null)
+        set(v) = prefs.edit().putString("seenSprint", v).apply()
+
     var reminderEnabled: Boolean
         get() = prefs.getBoolean("remEnabled", false)
         set(v) = prefs.edit().putBoolean("remEnabled", v).apply()

@@ -13,6 +13,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.ui.semantics.contentDescription
@@ -195,6 +196,7 @@ fun HomeScreen(vm: TimelogViewModel) {
                     contentPadding = PaddingValues(bottom = pad.calculateBottomPadding() + 32.dp),
                 ) {
                     item(key = "header") { Header(vm) { showSettings = true } }
+                    item(key = "sprintbar") { SprintBar(vm) }
                     item(key = "strip") { DateStrip(vm) }
                     item(key = "quick") { QuickActions(vm) }
                     item(key = "attention") { NeedsAttention(vm) }
@@ -244,6 +246,10 @@ fun HomeScreen(vm: TimelogViewModel) {
             EntranceScope { QuickLogScreen(vm, quickStart) { showQuick = false } }
         }
         Confetti(vm.celebrate)
+        val change = vm.sprintChange
+        if (change != null && vm.splashDone) {
+            SprintChangeOverlay(change.first, change.second, sprintDetail(vm)) { vm.dismissSprintChange() }
+        }
     }
 
     editor?.let { req -> EntranceScope { EntryEditor(vm, req) { editor = null } } }
@@ -325,6 +331,71 @@ private fun Header(vm: TimelogViewModel, onSettings: () -> Unit) {
                             Text("Pending ${durationLabel(pending)}", style = MaterialTheme.typography.labelMedium, color = cs.secondary)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** "4 workdays left · ends Fri 28 Nov", or null when Jira gave no end date. */
+private fun sprintDetail(vm: TimelogViewModel): String? {
+    val end = vm.sprint?.end?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate() ?: return null
+    val left = vm.sprintWorkdaysLeft() ?: return null
+    val ends = end.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM"))
+    return when {
+        end < vm.today -> "Ended $ends"
+        left == 0 -> "Ends today"
+        else -> "$left ${if (left == 1) "workday" else "workdays"} left · ends $ends"
+    }
+}
+
+/** The active sprint's name, how much of it is gone, and the workdays left. */
+@Composable
+private fun SprintBar(vm: TimelogViewModel) {
+    val sp = vm.sprint ?: return
+    val cs = MaterialTheme.colorScheme
+    val elapsed = vm.sprintElapsed()
+    val left = vm.sprintWorkdaysLeft()
+    val ended = sp.end != null && left == 0 && sp.end.isBefore(java.time.Instant.now())
+    val urgent = left != null && left <= 2
+    val accent = when { ended -> OverColor; urgent -> OverColor; else -> cs.primary }
+    val shown by animateFloatAsState(elapsed ?: 0f, tween(900, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "sprint")
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = cs.surfaceContainer,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp).fillMaxWidth().enter(2),
+    ) {
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Flag, null, tint = accent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    sp.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                )
+                if (left != null) {
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        when {
+                            ended -> "Ended"
+                            left == 0 -> "Last day"
+                            else -> "$left ${if (left == 1) "day" else "days"} left"
+                        },
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = accent,
+                    )
+                }
+            }
+            if (elapsed != null) {
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(cs.surfaceContainerHighest)) {
+                    Box(Modifier.fillMaxWidth(shown).height(6.dp).clip(CircleShape).background(accent))
+                }
+                sprintDetail(vm)?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        if (ended) "$it · the next sprint hasn't started yet" else it,
+                        style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -906,21 +977,19 @@ private fun DraftRow(d: Draft, flag: Pair<String, Color>?, onClick: () -> Unit, 
                         Spacer(Modifier.width(8.dp))
                         if (flag != null) {
                             Surface(color = flag.second.copy(alpha = 0.16f), contentColor = flag.second, shape = RoundedCornerShape(8.dp)) {
-                                Text(flag.first, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+                                Text(flag.first, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp))
                             }
-                            Spacer(Modifier.width(8.dp))
                         }
-                        Text(d.start.label(), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(d.issue.summary, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (d.comment.isNotBlank()) {
-                        Text(
-                            d.comment, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    // start time and note share one quiet line, so the top row never squeezes
+                    Text(
+                        d.start.label() + if (d.comment.isNotBlank()) " · ${d.comment}" else "",
+                        style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                     d.error?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = cs.error)
                         TextButton(onClick = onRetry, contentPadding = PaddingValues(horizontal = 0.dp), modifier = Modifier.height(32.dp)) {
