@@ -5,6 +5,7 @@ import IssuePeek from './components/IssuePeek.jsx'
 import ReviewPanel from './components/ReviewPanel.jsx'
 import Settings from './components/Settings.jsx'
 import Setup from './components/Setup.jsx'
+import Splash from './components/Splash.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import Timesheet from './components/Timesheet.jsx'
 import { Confetti, Toasts } from './components/ui.jsx'
@@ -23,6 +24,7 @@ export default function App() {
       <AnimatePresence mode="wait">{connected ? <Main key="main" /> : <Setup key="setup" />}</AnimatePresence>
       <Toasts />
       <Confetti />
+      <Splash />
     </MotionConfig>
   )
 }

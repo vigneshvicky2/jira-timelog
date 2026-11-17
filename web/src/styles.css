@@ -651,3 +651,65 @@ kbd {
 .chip.fill-day:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 88%, white); color: var(--on-primary); border-color: transparent; }
 .chip.fill-day:disabled { background: var(--surface-3); color: var(--muted); box-shadow: none; }
 .built-by { font-size: 11.5px; font-weight: 600; color: var(--muted); text-align: center; letter-spacing: 0.01em; }
+
+/* ---------- Launch splash (mirrors the Android app) ---------- */
+.splash {
+  position: fixed; inset: 0; z-index: 1000; background: #111113; overflow: hidden;
+  display: grid; place-items: center; cursor: pointer;
+  --out: cubic-bezier(0.16, 1, 0.3, 1); --inout: cubic-bezier(0.65, 0, 0.35, 1);
+}
+.splash.out { animation: splash-exit 0.5s var(--inout) forwards; }
+@keyframes splash-exit { to { opacity: 0; transform: scale(1.08); } }
+
+.splash-glow {
+  position: absolute; left: 50%; top: calc(50% - 56px); width: min(130vw, 900px); aspect-ratio: 1;
+  translate: -50% -50%; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, rgba(255, 107, 53, 0.32), transparent 62%);
+  animation: splash-bloom 1.15s 1.45s var(--out) forwards, splash-breathe 1.6s 2.6s ease-in-out infinite alternate;
+}
+@keyframes splash-bloom { 0% { opacity: 0; } 26% { opacity: 1; } 100% { opacity: 0.55; } }
+@keyframes splash-breathe { from { opacity: 0.55; } to { opacity: 0.7; } }
+
+.splash-stack { position: relative; display: grid; place-items: center; }
+.splash-lift { animation: splash-up 0.6s 1.55s var(--out) both; }
+@keyframes splash-up { from { transform: translateY(0); } to { transform: translateY(-56px); } }
+.splash-tile {
+  display: block; transform-origin: center;
+  animation: splash-in 0.9s cubic-bezier(0.34, 1.9, 0.5, 1) both, splash-squash 0.3s 1.45s ease-in-out;
+}
+@keyframes splash-in {
+  0% { opacity: 0; transform: scale(0.35) rotate(-14deg); }
+  20% { opacity: 1; }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes splash-squash { 50% { transform: scale(1.07, 0.93); } }
+.splash-stroke { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 0.32s var(--out) forwards; }
+.splash-slash { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 0.28s 1.19s var(--inout) forwards; }
+@keyframes splash-draw { to { stroke-dashoffset: 0; } }
+
+.splash-words {
+  position: absolute; top: calc(50% + 8px); left: 50%; translate: -50% 0;
+  display: flex; flex-direction: column; align-items: center; white-space: nowrap;
+}
+.splash-slot { overflow: hidden; }
+.splash-name {
+  font-family: var(--display); font-weight: 800; font-size: 54px; line-height: 1.1;
+  letter-spacing: -0.03em; color: #F4EFE6;
+  animation: splash-rise 0.54s 1.67s var(--out) both;
+}
+@keyframes splash-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.splash-credit {
+  position: relative; margin-top: 10px; font-size: 15px; font-weight: 500; letter-spacing: 0.01em; color: #A29F98;
+}
+.splash-credit span { display: block; clip-path: inset(0 100% 0 0); animation: splash-wipe 0.65s 2.25s var(--inout) forwards; }
+@keyframes splash-wipe { to { clip-path: inset(0 0 0 0); } }
+.splash-caret {
+  position: absolute; top: -2px; bottom: -2px; left: 2px; width: 2.5px; border-radius: 2px; background: #FF6B35; opacity: 0;
+  animation: splash-caret 0.95s 2.2s var(--inout) forwards;
+}
+@keyframes splash-caret {
+  0% { opacity: 0; left: 2px; }
+  10% { opacity: 1; left: 2px; }
+  73% { opacity: 1; left: calc(100% + 2px); }
+  100% { opacity: 0; left: calc(100% + 2px); }
+}
