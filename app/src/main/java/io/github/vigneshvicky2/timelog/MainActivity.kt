@@ -13,6 +13,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.vigneshvicky2.timelog.ui.EntranceScope
 import io.github.vigneshvicky2.timelog.ui.HomeScreen
@@ -35,7 +37,10 @@ class MainActivity : ComponentActivity() {
                     label = "root",
                 ) { ready -> EntranceScope { if (ready) HomeScreen(vm) else SetupScreen(vm) } }
                     io.github.vigneshvicky2.timelog.ui.IssuePeekHost(vm)
-                    io.github.vigneshvicky2.timelog.update.UpdateHost(viewModel())
+                    var splash by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(savedInstanceState == null) }
+                    // Hold update prompts and "What's new" until the splash has finished.
+                    if (splash) io.github.vigneshvicky2.timelog.ui.SplashOverlay(onDone = { splash = false })
+                    else io.github.vigneshvicky2.timelog.update.UpdateHost(viewModel())
                 } }
             }
         }

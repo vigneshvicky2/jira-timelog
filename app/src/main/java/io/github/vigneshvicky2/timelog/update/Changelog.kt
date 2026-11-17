@@ -5,6 +5,13 @@ data class ChangelogEntry(val version: String, val title: String, val items: Lis
 
 val CHANGELOG = listOf(
     ChangelogEntry(
+        "1.4.0", "A proper hello",
+        listOf(
+            "New launch animation: the tally logo draws itself, the slash swipes in, and Stint says hello.",
+            "Tap anywhere to skip it. It stays off if you've turned off animations on your phone.",
+        ),
+    ),
+    ChangelogEntry(
         "1.3.0", "A fresh new look",
         listOf(
             "New Stint design: charcoal and cream, bold numbers, cobalt for actions.",
